@@ -36,11 +36,11 @@ en tiempo real usando MCP (Model Context Protocol) en servicios financieros.
 - [x] CLAUDE.md con reglas para la IA
 - [x] API route del chat en app/api/chat/route.js
 - [x] Página principal con chat básico (page.tsx)
-
+- [x] Supabase creado y keys configuradas en .env.local y Vercel
 ## Lo que falta
 
 - [ ] MCP server con tools financieras
-- [ ] Conectar Supabase y definir esquema de base de datos
+- [ ] definir esquema de base de datos
 - [ ] Generative UI — renderizar componentes desde el agente
 - [ ] Diseño visual con identidad de Banorte
 - [ ] Integrar datos financieros reales o sintéticos
