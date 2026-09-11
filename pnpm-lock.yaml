@@ -115,6 +115,9 @@ importers:
       '@ai-sdk/groq':
         specifier: ^4.0.37
         version: 4.0.37(zod@4.5.4)
+      '@ai-sdk/react':
+        specifier: ^4.0.96
+        version: 4.0.96(react@19.2.8)(zod@4.5.4)
       '@base-ui/react':
         specifier: ^1.8.0
         version: 1.8.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -203,6 +206,12 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/mcp@2.0.45':
+    resolution: {integrity: sha512-ROukI/LfoPHf5F4gi1GKQebK5658fR1EG3kt0P0vzrfSy1FAGQ5FyKr9j2lbkXAV9X3kfpf9LJdif7w67XDtgw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/provider-utils@5.0.36':
     resolution: {integrity: sha512-MFXBn6XDyf37PNQAge/HTatPJE8Vmg/g/w4WPtjSV53jq8FKAzoaN5+43hsdQa9bqgN+/13jxug9ChvsG+godQ==}
     engines: {node: '>=22'}
@@ -212,6 +221,12 @@ packages:
   '@ai-sdk/provider@4.0.10':
     resolution: {integrity: sha512-fX2ENAc7iDpZ+Wp4+Rk06Usn/Ys7dI9uAkGv0jlF6XVrW13NkRWx5Ou+U6lIM2E1fTLkCs16GGrUAaVvroag7A==}
     engines: {node: '>=22'}
+
+  '@ai-sdk/react@4.0.96':
+    resolution: {integrity: sha512-m4823/q+obDgJot9+UOtVFij3DJIEYdv7x/AC4rc6KCMfRP4GR030DJyKjhtzC9xfDmTGttv3tMpqbknh6uUXA==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      react: ^18 || ~19.0.1 || ~19.1.2 || ^19.2.1
 
   '@alloc/quick-lru@5.3.0':
     resolution: {integrity: sha512-U4+70Pc5ZS9osnCBCE5Jha/ciHM+Yp+CNMNC/7HvYbNRk1Ldd+f7qO65W5qfhu/TCv+/ozljlXXe9Nj8419DMA==}
@@ -1561,6 +1576,10 @@ packages:
   depd@2.0.0:
     resolution: {integrity: sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw==}
     engines: {node: '>= 0.8'}
+
+  dequal@2.0.3:
+    resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
+    engines: {node: '>=6'}
 
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
@@ -3095,6 +3114,11 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
+  swr@2.5.1:
+    resolution: {integrity: sha512-BRw55e8r0B7SpDN20CAzoQAHl7y1yP7/Zt7oqUjMv0vSt2u2Xnkm88Ws+VypbV9BXHQVuSuyVq7zMjO16wSExw==}
+    peerDependencies:
+      react: ^16.11.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   systeminformation@5.33.8:
     resolution: {integrity: sha512-v4F6OGYGh7wDvV68YmjOmZwGixV9A/GQ7d2b84t0UF4CaOy9jipNWIJDkHqYDYiTPuiojqlwVQd0hfUKOUN7tQ==}
     engines: {node: '>=10.0.0'}
@@ -3107,6 +3131,10 @@ packages:
   tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
+
+  throttleit@2.1.0:
+    resolution: {integrity: sha512-nt6AMGKW1p/70DF/hGBdJB57B8Tspmbp5gfJ8ilhLnt7kkr2ye7hzD6NVG8GGErk2HWF34igrL2CXmNIkzKqKw==}
+    engines: {node: '>=18'}
 
   tiny-invariant@1.3.3:
     resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
@@ -3325,6 +3353,14 @@ snapshots:
       '@ai-sdk/provider-utils': 5.0.36(zod@4.5.4)
       zod: 4.5.4
 
+  '@ai-sdk/mcp@2.0.45(zod@4.5.4)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.10
+      '@ai-sdk/provider-utils': 5.0.36(zod@4.5.4)
+      cross-spawn: 7.0.6
+      pkce-challenge: 5.0.1
+      zod: 4.5.4
+
   '@ai-sdk/provider-utils@5.0.36(zod@4.5.4)':
     dependencies:
       '@ai-sdk/provider': 4.0.10
@@ -3337,6 +3373,18 @@ snapshots:
   '@ai-sdk/provider@4.0.10':
     dependencies:
       json-schema: 0.4.0
+
+  '@ai-sdk/react@4.0.96(react@19.2.8)(zod@4.5.4)':
+    dependencies:
+      '@ai-sdk/mcp': 2.0.45(zod@4.5.4)
+      '@ai-sdk/provider': 4.0.10
+      '@ai-sdk/provider-utils': 5.0.36(zod@4.5.4)
+      ai: 7.0.93(zod@4.5.4)
+      react: 19.2.8
+      swr: 2.5.1(react@19.2.8)
+      throttleit: 2.1.0
+    transitivePeerDependencies:
+      - zod
 
   '@alloc/quick-lru@5.3.0': {}
 
@@ -4653,6 +4701,8 @@ snapshots:
       object-keys: 1.1.1
 
   depd@2.0.0: {}
+
+  dequal@2.0.3: {}
 
   detect-libc@2.1.2: {}
 
@@ -6417,11 +6467,19 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
+  swr@2.5.1(react@19.2.8):
+    dependencies:
+      dequal: 2.0.3
+      react: 19.2.8
+      use-sync-external-store: 1.6.0(react@19.2.8)
+
   systeminformation@5.33.8: {}
 
   tailwindcss@4.3.3: {}
 
   tapable@2.3.3: {}
+
+  throttleit@2.1.0: {}
 
   tiny-invariant@1.3.3: {}
 
