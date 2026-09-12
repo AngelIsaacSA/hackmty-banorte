@@ -76,6 +76,40 @@ en tiempo real usando MCP (Model Context Protocol) en servicios financieros.
   `feature/components` (los `.jsx` que consumen `data`) y `feature/chat-ui`
   (que `page.tsx` lea `message.parts` y renderice el componente indicado).
 
+## Fallback a Groq (`app/api/chat/route.js`)
+
+Justo lo que pasó arriba (se acabó la cuota de Gemini a media prueba) es para
+lo que `GROQ_API_KEY` estaba pensado desde el inicio (ver `CLAUDE.md`), pero
+nadie lo había conectado. Ya quedó implementado:
+
+- `POST` ya no regresa directo `streamText(...).toUIMessageStreamResponse()`.
+  Ahora arma la respuesta con `createUIMessageStream`/
+  `createUIMessageStreamResponse`, y adentro corre el agente con Gemini
+  primero. Si el primer chunk útil que regresa es un `error` (cuota,
+  rate-limit, lo que sea), no se le manda nada al cliente todavía — se
+  descarta y se reintenta la misma pregunta con Groq
+  (`openai/gpt-oss-120b`, es de los pocos modelos con tool-calling que esta
+  cuenta de Groq sí tiene habilitados — probar con `curl .../v1/models` antes
+  de cambiarlo). Si Gemini sí responde, se reenvía tal cual — nunca se
+  llaman los dos modelos para la misma pregunta.
+- **Bug real que encontré armando esto**: `writer.merge(stream)` no es
+  awaitable (regresa `void` y sigue escribiendo en segundo plano). Si cierras
+  el cliente MCP (`client.close()`) justo después de llamar `merge()`, se
+  cierra a medias mientras el modelo todavía está pidiendo tools — eso tronaba
+  los tool calls con `tool-output-error`. La solución fue consumir el stream
+  manualmente con un loop `reader.read()` que si se puede esperar
+  (`drainReaderInto`), y solo cerrar el cliente MCP después de que ese loop
+  termine.
+- Probado en vivo con los 3 intents corriendo ya en Groq (porque la cuota de
+  Gemini seguía agotada): historial, proyección y búsqueda funcionan. Con
+  Groq, la búsqueda por comercio a veces regresa `MovimientosList` en vez de
+  `MovimientoTicket` para el mismo mensaje que con Gemini sí daba un solo
+  resultado — es porque cada modelo arma el argumento `query` de
+  `buscar_movimiento` distinto, no un bug de este fallback.
+- Si alguien quiere cambiar el modelo de fallback, la lista de modelos que
+  esta cuenta de Groq tiene habilitados se puede consultar con:
+  `curl -H "Authorization: Bearer $GROQ_API_KEY" https://api.groq.com/openai/v1/models`
+
 ## Notas importantes
 
 - El `.env.local` nunca se sube a GitHub
