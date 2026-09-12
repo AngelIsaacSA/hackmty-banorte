@@ -52,3 +52,67 @@ en tiempo real usando MCP (Model Context Protocol) en servicios financieros.
 - shadcn ya está configurado — no correr `pnpm dlx shadcn@latest init` de nuevo
 - Vercel lee las env vars desde su dashboard, no desde el repo
 - El equipo usa pnpm siempre, nunca npm directamente
+## División de trabajo
+
+- **feature/chat-ui** → TI — pantalla principal del chat con identidad Banorte
+- **feature/supabase-client** → TI — conexión a Supabase y queries
+- **feature/mcp-agent** → DevOps — MCP server con las 3 tools y detección de intención
+- **feature/components** → DevOps — componentes React que renderiza el agente
+
+## Intenciones del agente
+
+- **historial** → últimos movimientos por periodo (ej. "últimos 3 meses")
+- **busqueda** → encontrar cobro por comercio, monto o descripción (ej. "en qué gasté 67", "dónde se fue el cobro de OXXO")
+- **proyeccion** → ¿me alcanza? saldo actual vs gastos recurrentes proyectados
+
+## Componentes generativos
+
+- MovimientosList.jsx → lista clickeable de movimientos
+- MovimientoTicket.jsx → detalle tipo ticket de un movimiento
+- ProyeccionCard.jsx → tarjeta de proyección de saldo
+## El reto — Banorte × HackMTY 2026
+
+### Qué pide el reto
+Construir un agente de IA que no solo conteste con texto, sino que genere
+la interfaz que resuelve el problema financiero del usuario en tiempo real.
+
+### Las 3 piezas obligatorias
+- **LLM** → Gemini 2.5 Flash — interpreta la intención y orquesta todo
+- **MCP** → @modelcontextprotocol/sdk — expone los datos y acciones al agente
+- **A2UI (equivalente)** → Vercel AI SDK con useChat + message.parts — transmite
+  la interfaz que genera el agente al frontend
+
+### Dominio elegido
+Banca personal — movimientos inteligentes
+
+### Las 3 intenciones que resolvemos
+1. **Historial** → "quiero ver mis últimos movimientos" → lista de movimientos por periodo
+2. **Búsqueda** → "en qué gasté 67" / "dónde se fue el cobro de OXXO" → movimientos filtrados
+3. **Proyección** → "¿me alcanza para fin de mes?" → saldo actual vs gastos recurrentes
+
+### Flujo completo del ciclo
+1. Usuario escribe o toca una sugerencia en el chat
+2. Gemini detecta la intención (entiende sinónimos)
+3. Llama la tool MCP correspondiente
+4. La tool consulta Supabase vía lib/queries.js
+5. El agente decide qué componente renderizar y lo manda en message.parts
+6. El usuario toca un movimiento → regresa al agente como contexto → nueva interfaz
+
+### Reglas del reto que no se negocian
+- El LLM es el centro, no un chat pegado a un lado
+- Al menos un flujo accionable donde la interacción con la UI generada
+  produzca un cambio o una nueva interfaz
+- Los componentes los construye el equipo — no son de shadcn genérico
+- Los datos pueden ser sintéticos — ya están cargados en Supabase
+
+### Criterios de evaluación
+- Cumplimiento y utilidad → 25%
+- Calidad y adaptabilidad de la UI generada → 20%
+- Calidad de la solución de IA → 15%
+- Arquitectura e ingeniería → 15%
+- UX y diseño → 10%
+- Innovación → 10%
+- Presentación → 5%
+
+### Consejo del reto
+Un solo flujo resuelto completo vale más que cinco pantallas a medias.
