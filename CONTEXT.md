@@ -41,7 +41,7 @@ en tiempo real usando MCP (Model Context Protocol) en servicios financieros.
 
 - [x] MCP server con tools financieras (rama `feature/mcp-agent`, ver abajo)
 - [ ] definir esquema de base de datos
-- [ ] Generative UI — renderizar componentes desde el agente
+- [x] Generative UI — renderizar componentes desde el agente (rama `feature/components`, ver abajo)
 - [ ] Diseño visual con identidad de Banorte
 - [ ] Integrar datos financieros reales o sintéticos
 - [ ] Deploy final y pruebas end-to-end
@@ -75,6 +75,40 @@ en tiempo real usando MCP (Model Context Protocol) en servicios financieros.
 - Pendiente de otras ramas para que esto se vea en pantalla:
   `feature/components` (los `.jsx` que consumen `data`) y `feature/chat-ui`
   (que `page.tsx` lea `message.parts` y renderice el componente indicado).
+
+## Avance en feature/components (rama basada en feature/mcp-agent)
+
+- `components/generative/MovimientosList.jsx`, `MovimientoTicket.jsx` y
+  `ProyeccionCard.jsx` — leen exactamente el `data` que regresan las tools de
+  `feature/mcp-agent` (`cuenta`, `movimientos[]` con `id` numérico/`tipo`
+  cargo|abono/`recurrente`, `movimiento` único, `saldoActual`/
+  `gastosProyectados`/`saldoProyectado`/`alcanza`/`diasRestantes`).
+- `components/generative/GenerativeToolResult.jsx` — el switch que lee
+  `output.component` y renderiza el componente correspondiente con
+  `output.data`. Es lo único que hay que tocar si en el futuro se agrega un
+  cuarto componente/tool.
+- **Bug que encontré y arreglé de paso**: `app/page.tsx` en `feature/mcp-agent`
+  todavía usaba la API vieja de `useChat` (v4: `input` / `handleInputChange`
+  / `handleSubmit` / `m.content`), aunque `@ai-sdk/react` ya estaba instalado
+  en `^4` (que es la v5 del SDK de chat). Sin este fix la app truena al
+  cargar. Se migró a `sendMessage` / `message.parts` / `status`.
+- **Dato importante para quien toque el chat**: esta rama usa `tool()` (no
+  `dynamicTool()`) para exponer las tools MCP a Gemini, así que las partes de
+  resultado en `message.parts` llegan como `type: "tool-<nombre_tool>"`, NO
+  como `"dynamic-tool"`. El frontend debe filtrar con
+  `part.type.startsWith('tool-')`, no con un match exacto.
+- Click en un movimiento de `MovimientosList` → manda al agente un mensaje
+  nuevo con comercio/monto/fecha del movimiento tocado → el system prompt de
+  `feature/mcp-agent` ya sabe tratar eso como búsqueda y llama
+  `buscar_movimiento`, que regresa el `MovimientoTicket`.
+- **Limitación conocida (no se tocó, es de la tool de `feature/mcp-agent`)**:
+  `buscar_movimiento` solo recibe un `query` de texto libre, sin id. Si hay
+  dos movimientos con el mismo comercio y monto (ej. dos cargos de OXXO por
+  $67), el click puede regresar una lista con ambos en vez del ticket exacto,
+  en vez de fallar. Si se quiere resolver de raíz, `buscar_movimiento`
+  necesitaría aceptar un `id`.
+- Probado en vivo contra el backend real de `feature/mcp-agent` corriendo
+  localmente (los 3 flujos + el click-to-ticket), con Gemini de verdad.
 
 ## Notas importantes
 
