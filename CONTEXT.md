@@ -39,12 +39,42 @@ en tiempo real usando MCP (Model Context Protocol) en servicios financieros.
 - [x] Supabase creado y keys configuradas en .env.local y Vercel
 ## Lo que falta
 
-- [ ] MCP server con tools financieras
+- [x] MCP server con tools financieras (rama `feature/mcp-agent`, ver abajo)
 - [ ] definir esquema de base de datos
 - [ ] Generative UI — renderizar componentes desde el agente
 - [ ] Diseño visual con identidad de Banorte
 - [ ] Integrar datos financieros reales o sintéticos
 - [ ] Deploy final y pruebas end-to-end
+
+## Avance en feature/mcp-agent (DevOps, rama 2)
+
+- `app/api/mcp/route.js` — servidor MCP real (con `mcp-handler` v1.x, que es
+  la versión compatible con `@modelcontextprotocol/sdk` v1.30 que ya estaba
+  instalado — la v2 de `mcp-handler` pide `@modelcontextprotocol/server` v2 y
+  no aplica aquí). Expone 3 tools: `get_historial`, `buscar_movimiento`,
+  `get_proyeccion`. Cada una regresa `{ component, data }` para que el
+  frontend sepa qué componente renderizar (`MovimientosList`,
+  `MovimientoTicket`, `ProyeccionCard`).
+- `lib/queries.js` — capa de datos de la que salen los 3 tools. Por ahora usa
+  un dataset **sintético en memoria** (20 movimientos de agosto 2026, Carlos
+  Ramírez Mendoza, cuenta 0218-1234-5678) porque el esquema de Supabase
+  todavía no está definido. Tiene un TODO explícito: cuando
+  `feature/supabase-client` defina las tablas, solo hay que reemplazar el
+  contenido de `getHistorial`/`buscarMovimiento`/`getProyeccion` por queries
+  reales — las tools del MCP no deberían cambiar.
+- `app/api/chat/route.js` — Gemini ya no tiene tools pegadas directo en el
+  código: en cada request se conecta como **cliente MCP real** (via
+  `@modelcontextprotocol/sdk`) al propio `/api/mcp`, pide la lista de tools y
+  se las pasa. El system prompt enseña las 3 intenciones y sus sinónimos
+  ("en qué gasté" / "en qué se me cobró" / "dónde se fue mi dinero" = misma
+  intención de búsqueda). Probado en vivo con los 3 flujos.
+- **Cambio importante de modelo**: `gemini-2.5-flash` ya no está disponible
+  para proyectos nuevos (la API de Google regresa 404 y sugiere migrar). Se
+  cambió a `gemini-3.6-flash`. Si alguien más toca `app/api/chat/route.js`
+  o agrega otra llamada a Gemini, usar ese modelo.
+- Pendiente de otras ramas para que esto se vea en pantalla:
+  `feature/components` (los `.jsx` que consumen `data`) y `feature/chat-ui`
+  (que `page.tsx` lea `message.parts` y renderice el componente indicado).
 
 ## Notas importantes
 
