@@ -41,9 +41,11 @@ en tiempo real usando MCP (Model Context Protocol) en servicios financieros.
 
 - [x] MCP server con tools financieras (rama `feature/mcp-agent`, ver abajo)
 - [ ] definir esquema de base de datos
-- [ ] Generative UI — renderizar componentes desde el agente
-- [ ] Diseño visual con identidad de Banorte
-- [ ] Integrar datos financieros reales o sintéticos
+- [x] Generative UI — renderizar componentes desde el agente (rama `feature/components`)
+- [x] Diseño visual con identidad de Banorte (rama `feature/chat-ui`)
+- [x] Integrar las 4 ramas en una sola app funcional (rama `feature/integracion`, ver abajo)
+- [ ] Conectar Supabase de verdad (`feature/supabase-client` ya tiene las queries,
+      falta decidir de dónde sale `cuenta_id` — no hay auth/sesión todavía)
 - [ ] Deploy final y pruebas end-to-end
 
 ## Avance en feature/mcp-agent (DevOps, rama 2)
@@ -75,6 +77,44 @@ en tiempo real usando MCP (Model Context Protocol) en servicios financieros.
 - Pendiente de otras ramas para que esto se vea en pantalla:
   `feature/components` (los `.jsx` que consumen `data`) y `feature/chat-ui`
   (que `page.tsx` lea `message.parts` y renderice el componente indicado).
+
+## Avance en feature/integracion (junta las 4 ramas)
+
+Las 4 ramas se construyeron en paralelo y cada una resolvía una pieza, pero
+ninguna combinación de dos alcanzaba a compilar+funcionar completa. Esta rama
+las junta:
+
+- Se mergeó `feature/mcp-agent` (backend completo) + `feature/chat-ui` (UI con
+  identidad Banorte). Hubo conflicto real en `app/api/chat/route.js` — se
+  quedó con la versión de `feature/mcp-agent` completa (tool-calling real vía
+  MCP), porque la de `feature/chat-ui` era solo el fix de `convertToModelMessages`
+  sin ninguna tool conectada.
+- `feature/chat-ui` reemplazó `page.tsx` por `page.jsx` (visual bonito, rojo
+  `#E40520`, sugerencias) pero su `AssistantInterface` solo pintaba un
+  **skeleton falso** (barras grises) cuando llegaba un resultado de tool, sin
+  usar ningún componente real. Se reemplazó ese skeleton por
+  `<GenerativeToolResult>` de `feature/components`, que sí renderiza
+  `MovimientosList` / `MovimientoTicket` / `ProyeccionCard` con los datos
+  reales.
+- Se agregaron los 4 archivos de `components/generative/` de `feature/components`
+  sin cambios de contrato (ya estaban alineados con `{ component, data }` de
+  `feature/mcp-agent`).
+- **Bug que también arreglé aquí**: `page.jsx` de `feature/chat-ui` nunca
+  renderizaba el texto de respuesta del agente (`part.type === 'text'`) para
+  mensajes del asistente — solo mostraba la tarjeta generativa. Se agregó el
+  render del texto junto a la tarjeta.
+- `feature/supabase-client` (PR #1) **no se integró**: su `lib/queries.js` es
+  incompatible con el de `feature/mcp-agent` (funciones y firmas distintas,
+  `getMovimientosPorCategoria(cuenta_id, mes, anio)` vs `getHistorial({periodo})`),
+  y requiere `cuenta_id` — no hay auth/sesión que diga quién es el usuario
+  actual todavía. Decisión: seguir con el dataset sintético de
+  `feature/mcp-agent` por ahora; conectar Supabase de verdad es trabajo
+  aparte que empieza por diseñar de dónde sale `cuenta_id`.
+- Probado en vivo (historial, proyección, MCP directo sin pasar por Gemini)
+  hasta que se acabó la cuota gratis de Gemini (`gemini-3.6-flash`, límite de
+  20 requests/día en el tier free) — con eso ya no se pudo probar el flujo de
+  click-to-ticket dentro de esta rama en particular, aunque es el mismo código
+  ya probado en `feature/components`.
 
 ## Notas importantes
 

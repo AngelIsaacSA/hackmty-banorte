@@ -11,8 +11,8 @@ import {
   LoaderCircle,
   ShieldCheck,
   Sparkles,
-  WalletCards,
 } from 'lucide-react'
+import GenerativeToolResult from '@/components/generative/GenerativeToolResult'
 
 const suggestions = [
   '¿En qué gasté más este mes?',
@@ -23,19 +23,15 @@ const suggestions = [
   'Ayúdame a organizar mis gastos',
 ]
 
-function AssistantInterface({ message, isStreaming }) {
-  const interfaceParts = (message.parts || []).filter((part) => {
-    return (
-      part.type === 'ui' ||
-      part.type === 'custom' ||
-      part.type === 'data' ||
-      part.type.startsWith('data-') ||
-      part.type === 'tool' ||
+function AssistantInterface({ message, isStreaming, onSelectMovimiento }) {
+  const relevantParts = (message.parts || []).filter(
+    (part) =>
+      part.type === 'text' ||
+      part.type === 'dynamic-tool' ||
       part.type.startsWith('tool-')
-    )
-  })
+  )
 
-  if (interfaceParts.length === 0) {
+  if (relevantParts.length === 0) {
     return isStreaming ? (
       <div className="flex items-center gap-3 rounded-2xl border border-red-100 bg-white px-4 py-3 text-sm font-medium text-slate-500 shadow-sm">
         <LoaderCircle className="size-4 animate-spin text-[#E40520]" aria-hidden="true" />
@@ -46,35 +42,39 @@ function AssistantInterface({ message, isStreaming }) {
 
   return (
     <div className="space-y-3" aria-label="Interfaz financiera generada">
-      {interfaceParts.map((part, index) => {
-        const isTool = part.type === 'tool' || part.type.startsWith('tool-')
-        const isReady = part.state === 'output-available' || part.state === 'done'
+      {relevantParts.map((part, index) => {
+        const key = `${message.id}-${part.type}-${index}`
+
+        if (part.type === 'text') {
+          if (!part.text) return null
+          return (
+            <div
+              key={key}
+              className="rounded-2xl rounded-bl-md bg-white px-4 py-3 text-sm leading-6 text-slate-700 shadow-sm"
+            >
+              {part.text}
+            </div>
+          )
+        }
+
+        if (part.state !== 'output-available') {
+          return (
+            <div
+              key={key}
+              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500 shadow-sm"
+            >
+              <LoaderCircle className="size-4 animate-spin text-[#E40520]" aria-hidden="true" />
+              Consultando tu información...
+            </div>
+          )
+        }
 
         return (
-          <section
-            key={`${message.id}-${part.type}-${index}`}
-            className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-          >
-            <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
-              <span className="grid size-9 place-items-center rounded-xl bg-[#E40520]/10 text-[#E40520]">
-                {isTool ? <WalletCards className="size-5" aria-hidden="true" /> : <Sparkles className="size-5" aria-hidden="true" />}
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-slate-900">
-                  {isTool ? 'Consulta financiera' : 'Resumen personalizado'}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {isReady ? 'Información lista para revisar' : 'Actualizando información'}
-                </p>
-              </div>
-              {!isReady && <LoaderCircle className="ml-auto size-4 animate-spin text-[#E40520]" aria-label="Cargando" />}
-            </div>
-            <div className="flex items-center gap-2 px-4 py-4">
-              <span className="h-2 w-2 rounded-full bg-[#E40520]" />
-              <span className="h-2 w-16 rounded-full bg-slate-100" />
-              <span className="h-2 w-9 rounded-full bg-slate-100" />
-            </div>
-          </section>
+          <GenerativeToolResult
+            key={key}
+            output={part.output}
+            onSelectMovimiento={onSelectMovimiento}
+          />
         )
       })}
     </div>
@@ -101,6 +101,14 @@ export default function Home() {
   function handleSubmit(event) {
     event.preventDefault()
     sendQuestion(input)
+  }
+
+  function onSelectMovimiento(movimiento) {
+    sendQuestion(
+      `Muéstrame el detalle de este movimiento: ${movimiento.comercio}, $${Math.abs(
+        movimiento.monto
+      )} MXN, ${movimiento.fecha}.`
+    )
   }
 
   return (
@@ -154,7 +162,11 @@ export default function Home() {
             if (message.role === 'assistant') {
               return (
                 <div key={message.id} className="max-w-xl">
-                  <AssistantInterface message={message} isStreaming={status === 'streaming'} />
+                  <AssistantInterface
+                    message={message}
+                    isStreaming={status === 'streaming'}
+                    onSelectMovimiento={onSelectMovimiento}
+                  />
                 </div>
               )
             }
