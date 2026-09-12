@@ -116,6 +116,43 @@ las junta:
   click-to-ticket dentro de esta rama en particular, aunque es el mismo código
   ya probado en `feature/components`.
 
+## Segunda integración — feature/chat-ui se había vuelto a separar
+
+Después de la integración de arriba, `feature/chat-ui` se siguió trabajando
+por su cuenta (un rediseño completo con "natwDX": `banorte-chat.jsx`,
+`chat-hero.jsx`, `message-list.jsx`, `prompt-input.jsx`, `icons.jsx`, etc.) y
+se volvió a alejar de `feature/integracion` — ese rediseño nunca traía MCP:
+tenía su propio `app/api/chat/route.js` sin tools (con `gemini-2.5-flash`,
+el modelo ya dado de baja) y en `message-list.jsx` había literalmente un
+comentario `// TODO: mapear part.type al componente de components/generative/
+una vez exista feature/components`, es decir, nunca se conectó.
+
+Se volvió a mergear (commit `c96a071`), esta vez quedándose con:
+- La UI nueva completa, sin tocar el diseño en absoluto.
+- `app/api/chat/route.js`, `app/api/mcp/route.js` y `lib/queries.js` del lado
+  de `feature/mcp-agent` (cliente MCP real + fallback a Groq).
+- Se resolvió el TODO real en `message-list.jsx`: ahora sí importa
+  `GenerativeToolResult` y mapea las partes `tool-*`/`dynamic-tool` a
+  `MovimientosList` / `MovimientoTicket` / `ProyeccionCard`.
+- Se agregó `onSelectMovimiento` en `banorte-chat.jsx` → `MessageList` →
+  `GenerativeToolResult`, para que tocar un movimiento en la lista regrese al
+  agente como contexto y genere el ticket (cierra el ciclo que pide el reto:
+  "lo que la persona toca regresa al modelo como contexto").
+
+**Bug real encontrado probando ese flujo de clic**: el dataset sintético
+tiene dos cargos de OXXO por $67 en fechas distintas. Al tocar cualquiera de
+los dos, `buscar_movimiento` regresaba la lista de nuevo en vez del ticket,
+porque la búsqueda por texto no desempataba por fecha. Se arregló
+`buscarMovimiento` en `lib/queries.js`: ahora le da un puntaje a cada
+movimiento por cuántos tokens de la búsqueda coinciden (comercio, categoría,
+descripción, monto o fecha exacta) y solo regresa los que empatan en el
+puntaje más alto — así "OXXO 67 2026-08-25" desambigua a un solo resultado,
+pero "67" solo sigue regresando ambos (comportamiento correcto para una
+búsqueda ambigua).
+
+Probado en vivo end-to-end: los 3 intents, el flujo de clic→ticket, lint y
+`pnpm build` de producción, todo limpio.
+
 ## Fallback a Groq (`app/api/chat/route.js`)
 
 Justo lo que pasó arriba (se acabó la cuota de Gemini a media prueba) es para
