@@ -1,10 +1,22 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
-import { streamText, convertToModelMessages, stepCountIs, tool, jsonSchema } from 'ai'
+import { createGroq } from '@ai-sdk/groq'
+import {
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  jsonSchema,
+  stepCountIs,
+  streamText,
+  tool,
+} from 'ai'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY,
+})
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
 })
 
 const SYSTEM_PROMPT = `Eres el asistente financiero de Banorte. Ayudas a Carlos Ramírez Mendoza
@@ -57,22 +69,87 @@ async function getMcpTools(origin) {
   return { tools, client }
 }
 
+function runAgent(model, messages, tools) {
+  return streamText({
+    model,
+    system: SYSTEM_PROMPT,
+    messages,
+    tools,
+    stopWhen: stepCountIs(3),
+  })
+}
+
+// Vacía el resto de un reader hacia el writer. Se usa en vez de
+// writer.merge() (que no se puede esperar: regresa void y sigue
+// escribiendo en segundo plano) porque necesitamos saber con certeza
+// cuándo terminó de consumirse el stream antes de cerrar el cliente MCP.
+async function drainReaderInto(writer, reader) {
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) return
+    writer.write(value)
+  }
+}
+
+// Corre el agente con `model`. Si el primer chunk útil que regresa es un
+// error (típicamente cuota/rate-limit agotada), no se le manda nada al
+// cliente todavía — se descarta y se reintenta con `fallbackModel`. Si el
+// primer intento sí funciona, se reenvía tal cual (sin gastar una segunda
+// llamada). Así Gemini y Groq nunca se llaman los dos para la misma pregunta
+// a menos que el primero falle. Espera a que el stream elegido termine por
+// completo antes de regresar, para no cerrar el cliente MCP a medias.
+async function writeWithFallback(writer, { model, fallbackModel, messages, tools }) {
+  const reader = runAgent(model, messages, tools).toUIMessageStream().getReader()
+  const buffered = []
+  let failed = false
+
+  // "start" siempre es el primer chunk (éxito o error), así que hay que
+  // seguir leyendo hasta ver algo que confirme progreso real o un error.
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    if (value.type === 'error') {
+      failed = true
+      break
+    }
+
+    buffered.push(value)
+    if (value.type !== 'start') break
+  }
+
+  if (!failed) {
+    for (const chunk of buffered) writer.write(chunk)
+    await drainReaderInto(writer, reader)
+    return
+  }
+
+  await reader.cancel().catch(() => {})
+  const fallbackReader = runAgent(fallbackModel, messages, tools).toUIMessageStream().getReader()
+  await drainReaderInto(writer, fallbackReader)
+}
+
 export async function POST(req) {
   const { messages } = await req.json()
   const origin = new URL(req.url).origin
 
   const { tools, client } = await getMcpTools(origin)
+  const modelMessages = await convertToModelMessages(messages)
 
-  const result = streamText({
-    model: google('gemini-3.6-flash'),
-    system: SYSTEM_PROMPT,
-    messages: await convertToModelMessages(messages),
-    tools,
-    stopWhen: stepCountIs(3),
-    onFinish: async () => {
-      await client.close()
+  const stream = createUIMessageStream({
+    execute: async ({ writer }) => {
+      try {
+        await writeWithFallback(writer, {
+          model: google('gemini-3.6-flash'),
+          fallbackModel: groq('openai/gpt-oss-120b'),
+          messages: modelMessages,
+          tools,
+        })
+      } finally {
+        await client.close()
+      }
     },
   })
 
-  return result.toUIMessageStreamResponse()
+  return createUIMessageStreamResponse({ stream })
 }
