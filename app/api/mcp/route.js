@@ -65,7 +65,11 @@ const handler = createMcpHandler(
           resultado.movimientos.length === 1 ? 'MovimientoTicket' : 'MovimientosList'
         const data =
           resultado.movimientos.length === 1
-            ? { cuenta: resultado.cuenta, movimiento: resultado.movimientos[0] }
+            ? {
+                cuenta: resultado.cuenta,
+                movimiento: resultado.movimientos[0],
+                hayMasCargos: resultado.totalMismoComercio > 1,
+              }
             : resultado
         return toolResult(component, data)
       }

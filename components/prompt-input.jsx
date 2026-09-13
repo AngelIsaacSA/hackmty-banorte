@@ -1,3 +1,7 @@
+"use client"
+
+import { useEffect, useRef, useState } from "react"
+import { CircleAlert } from "lucide-react"
 import { ArrowRight, MicIcon } from "./icons"
 
 const SUGGESTIONS = [
@@ -10,12 +14,73 @@ const SUGGESTIONS = [
 ]
 
 export default function PromptInput({ value, onChange, onSubmit, onSuggestion, disabled, showHeading, showSuggestions }) {
+  const [isListening, setIsListening] = useState(false)
+  const [voiceError, setVoiceError] = useState("")
+  const recognitionRef = useRef(null)
+  const valueRef = useRef(value)
+
+  useEffect(() => {
+    valueRef.current = value
+  }, [value])
+
+  // Detiene el reconocimiento si el componente se desmonta a media
+  // escucha (por ejemplo, si el usuario manda el mensaje de otra forma).
+  useEffect(() => {
+    return () => recognitionRef.current?.stop()
+  }, [])
+
   const handleKeyDown = (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       if (event.nativeEvent.isComposing || event.keyCode === 229) return
       event.preventDefault()
       onSubmit()
     }
+  }
+
+  const toggleVoice = () => {
+    if (isListening) {
+      recognitionRef.current?.stop()
+      return
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setVoiceError("Este navegador no soporta dictado por voz. Prueba en Chrome o Edge.")
+      return
+    }
+
+    setVoiceError("")
+    const recognition = new SpeechRecognition()
+    recognition.lang = "es-MX"
+    recognition.interimResults = true
+    recognition.continuous = false
+
+    // Dicta a partir de lo que ya había escrito, en vez de reemplazarlo,
+    // para poder combinar texto escrito y hablado.
+    const baseValue = valueRef.current ? `${valueRef.current} ` : ""
+
+    recognition.onresult = (event) => {
+      let transcript = ""
+      for (let i = 0; i < event.results.length; i += 1) {
+        transcript += event.results[i][0].transcript
+      }
+      onChange(`${baseValue}${transcript}`)
+    }
+
+    recognition.onerror = (event) => {
+      if (event.error === "not-allowed") {
+        setVoiceError("Activa el permiso del micrófono para dictar.")
+      } else if (event.error !== "no-speech" && event.error !== "aborted") {
+        setVoiceError("No se pudo escuchar el audio, intenta de nuevo.")
+      }
+      setIsListening(false)
+    }
+
+    recognition.onend = () => setIsListening(false)
+
+    recognitionRef.current = recognition
+    recognition.start()
+    setIsListening(true)
   }
 
   return (
@@ -47,11 +112,17 @@ export default function PromptInput({ value, onChange, onSubmit, onSuggestion, d
         <div className="absolute right-2.5 flex items-center gap-1.5">
           <button
             type="button"
-            title="Activar entrada de voz"
-            className="rounded-full p-2.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-banorte-red"
+            onClick={toggleVoice}
+            disabled={disabled}
+            title={isListening ? "Detener dictado" : "Activar entrada de voz"}
+            className={`rounded-full p-2.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              isListening
+                ? "animate-pulse bg-red-50 text-banorte-red"
+                : "text-slate-400 hover:bg-slate-100 hover:text-banorte-red"
+            }`}
           >
             <MicIcon className="h-5 w-5" />
-            <span className="sr-only">Activar entrada de voz</span>
+            <span className="sr-only">{isListening ? "Detener dictado" : "Activar entrada de voz"}</span>
           </button>
           <button
             type="submit"
@@ -64,6 +135,13 @@ export default function PromptInput({ value, onChange, onSubmit, onSuggestion, d
           </button>
         </div>
       </form>
+
+      {voiceError && (
+        <div className="mt-2 flex items-center justify-center gap-1.5 px-2 text-center text-xs text-amber-700">
+          <CircleAlert className="h-3.5 w-3.5 shrink-0" />
+          {voiceError}
+        </div>
+      )}
 
       {showSuggestions && (
         <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">

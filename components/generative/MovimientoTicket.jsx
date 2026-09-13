@@ -13,7 +13,7 @@ const formatoFecha = new Intl.DateTimeFormat('es-MX', {
 })
 
 export default function MovimientoTicket({ data, onBuscarComercio }) {
-  const { movimiento, cuenta } = data || {}
+  const { movimiento, cuenta, hayMasCargos } = data || {}
   if (!movimiento) return null
 
   const esAbono = movimiento.tipo === 'abono'
@@ -66,7 +66,7 @@ export default function MovimientoTicket({ data, onBuscarComercio }) {
         </div>
       </dl>
 
-      {onBuscarComercio && (
+      {onBuscarComercio && hayMasCargos !== false && (
         <button
           type="button"
           onClick={() => onBuscarComercio(movimiento.comercio)}
