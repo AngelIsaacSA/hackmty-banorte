@@ -14,18 +14,21 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 // Junta todas las keys configuradas bajo `${envPrefix}`, `${envPrefix}_2`,
 // `${envPrefix}_3`... para rotar entre varias cuentas gratis cuando una se
-// queda sin cuota diaria, en vez de depender de una sola. Se detiene en el
-// primer número faltante, así que no dejes huecos (si tienes 3 keys, usa
-// la base + _2 + _3, no te saltes a _4).
+// queda sin cuota diaria, en vez de depender de una sola. Tolera huecos en
+// la numeración (si falta `_4` pero existe `_5`, igual se usa `_5`) porque
+// con varias personas mandando keys a mano es fácil que alguien se salte
+// un número — buscar hasta MAX_KEYS en vez de detenerse en el primer hueco
+// evita que una key se quede fuera por eso.
+const MAX_KEYS_PER_PROVIDER = 10
+
 function getKeyedModels(envPrefix, createModel) {
   const models = []
-  let key = process.env[envPrefix]
-  let index = 2
+  const first = process.env[envPrefix]
+  if (first) models.push(createModel(first))
 
-  while (key) {
-    models.push(createModel(key))
-    key = process.env[`${envPrefix}_${index}`]
-    index += 1
+  for (let index = 2; index <= MAX_KEYS_PER_PROVIDER; index += 1) {
+    const key = process.env[`${envPrefix}_${index}`]
+    if (key) models.push(createModel(key))
   }
 
   return models
