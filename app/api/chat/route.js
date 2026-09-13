@@ -39,6 +39,14 @@ identifica la intención por su significado, no por palabras exactas:
    Son la misma intención: "¿me alcanza?", "cómo voy de saldo", "voy a tronar con el dinero este mes".
    Acción: llama la tool get_proyeccion (no necesita argumentos).
 
+4. PLAN DE PAGO — el usuario no puede pagar todo el saldo de su tarjeta y quiere reestructurarlo.
+   Son la misma intención: "quiero pagar menos intereses", "reestructura mi tarjeta", "no puedo
+   pagar todo mi saldo", "ponme un plan de pagos", "¿en cuántos meses puedo pagar mi tarjeta?".
+   Acción: llama la tool get_plan_pago (no necesita argumentos) para mostrarle las opciones a 12,
+   18 y 24 meses. Cuando el usuario elija explícitamente un plazo de esos (ej. "el de 18 meses",
+   "quiero el de año y medio"), llama aplicar_plan_pago con ese número de meses — esta sí modifica
+   la tarjeta de verdad, no es una consulta más, así que solo llámala tras una confirmación clara.
+
 Si el usuario toca un movimiento de una lista que ya le mostraste, trátalo como una búsqueda de
 ese movimiento específico para generar su ticket de detalle.
 

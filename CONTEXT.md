@@ -129,8 +129,8 @@ transmitir la interfaz (en nuestro caso: AI SDK + `message.parts`).
 1. Componentes propios, no biblioteca de UI genérica
 2. Datos y APIs propios (sintéticos está permitido)
 3. **Al menos un flujo accionable** — una interacción con la UI generada que
-   produzca un cambio real, no solo otra consulta. **Esto todavía no lo
-   tenemos** (ver "Pendientes" abajo) — es la regla que más urge resolver.
+   produzca un cambio real, no solo otra consulta. **Resuelto** en
+   `feature/flujo-accionable`: `aplicar_plan_pago` (ver sección propia abajo).
 4. Libertad de stack
 
 **Evaluación:** cumplimiento/utilidad 25% · calidad y adaptabilidad de la UI
@@ -193,6 +193,55 @@ distintas. Para que ninguna de las dos rompa a la otra, este es el
   accionable) — el panel solo decide layout y navegación, no duplica lógica
   de cada tarjeta.
 
+## Avance en feature/flujo-accionable
+
+Primer flujo accionable del reto (regla #3): reestructura del saldo de una
+tarjeta de crédito, siguiendo el ejemplo del PDF del reto y los campos reales
+de `tarjeta` documentados arriba.
+
+- `lib/queries.js` — se agregó una `TARJETA` sintética (mutable a propósito,
+  con `limiteCredito`, `creditoUtilizado`, `tasaInteres`, `cat`, `pagoMinimo`,
+  `pagoSinIntereses`, igual que la tabla real) y dos funciones:
+  - `getPlanPago({ tarjetaId })` — **solo lectura**. Calcula la mensualidad
+    con amortización francesa (mensualidad fija) a 12/18/24 meses sobre
+    `creditoUtilizado` y `tasaInteres`, regresa mensualidad/interés
+    total/CAT de cada plazo. `tarjetaId` está en la firma para cuando haya
+    más de una tarjeta o se conecte Supabase; hoy solo existe la sintética.
+  - `aplicarPlanPago({ tarjetaId, meses })` — **sí escribe**: muta
+    `TARJETA.pagoSinIntereses` y `TARJETA.planPago` con el plazo elegido.
+    Cuando se conecte Supabase esto pasa a ser un `UPDATE` real sobre la fila
+    de `tarjeta` — la firma ya está pensada para ese swap.
+- `app/api/mcp/route.js` — dos tools nuevas: `get_plan_pago` (regresa
+  `{ component: "PlanPagoOpciones", data }`, una sola pantalla) y
+  `aplicar_plan_pago` (regresa `{ screens: [...] }` con 2 pantallas: un
+  recap de `PlanPagoOpciones` con `opcionAplicada` marcada, y
+  `PlanPagoConfirmacion` con el plan ya activo) — usando el contrato de
+  pantallas múltiples acordado arriba.
+- `components/generative/PlanPagoOpciones.jsx` y `PlanPagoConfirmacion.jsx`
+  — mismo patrón visual que `MovimientosList`/`MovimientoTicket`/
+  `ProyeccionCard` (Tailwind + tokens del tema, sin shadcn genérico).
+  `PlanPagoOpciones` recibe un `onElegirPlan(meses)` opcional — si no se le
+  pasa (como hoy), simplemente no muestra los botones y queda de solo
+  lectura; el flujo accionable sigue funcionando por texto normal en el chat
+  (el usuario escribe "quiero el de 18 meses" y el agente llama
+  `aplicar_plan_pago` igual).
+- `components/generative/GenerativeToolResult.jsx` — se le agregó el `case`
+  de `'PlanPagoOpciones'` (mismo patrón que los otros 3), nada más. **No** se
+  tocó el manejo de `screens` ni `message-list.jsx`/`banorte-chat.jsx` — eso
+  se deja para quien esté armando el panel/canvas nuevo. Falta, cuando esa
+  pieza exista: (a) que sepa leer `output.screens` además de
+  `output.component`, y (b) enchufar `onElegirPlan` desde
+  `banorte-chat.jsx` → `message-list.jsx` (igual que ya existe
+  `onSelectMovimiento`) para que el botón "Elegir este plan" mande el mensaje
+  en vez de solo mostrarse deshabilitado.
+- Actualizado el system prompt en `app/api/chat/route.js` con la 4ª
+  intención (PLAN DE PAGO) y sus sinónimos.
+- Probado en vivo end-to-end (MCP directo sin modelo, y el flujo completo
+  por chat con fallback a Groq porque la cuota de Gemini seguía agotada):
+  `get_plan_pago` calcula bien las 3 opciones, `aplicar_plan_pago` muta la
+  tarjeta y regresa las 2 pantallas correctas. `pnpm exec eslint .` y
+  `pnpm build` limpios.
+
 ## Bitácora técnica — bugs reales y por qué se resolvieron así
 
 - **`convertToModelMessages()` es async en AI SDK 7** — si no le pones
@@ -234,14 +283,11 @@ distintas. Para que ninguna de las dos rompa a la otra, este es el
 
 ## Pendientes (por prioridad)
 
-1. **Flujo accionable** (regla #3 del reto, 25% de la nota) — ninguna de las
-   3 tools actuales cambia nada, todas son lectura. El esquema real ya trae
-   todo lo necesario para uno bueno: un plan de pago de tarjeta usando
-   `tarjeta.limite_credito/credito_utilizado/tasa_interes/cat` (ver "Esquema
-   real de Supabase" arriba), que al confirmarse escriba de verdad en la
-   tabla.
+1. ~~**Flujo accionable**~~ — resuelto en `feature/flujo-accionable` (ver
+   sección de abajo): `get_plan_pago` + `aplicar_plan_pago`.
 2. **Nuevo patrón de interfaz** (ver sección de arriba) — decidir alcance e
-   implementarlo.
+   implementarlo. `aplicar_plan_pago` ya regresa `{ screens: [...] }`
+   siguiendo el contrato acordado, listo para que el panel/canvas lo consuma.
 3. Conectar `lib/queries.js` al esquema real de Supabase (ya no es "falta
    definirlo", es "falta adaptarlo") — o formalizar que el dataset sintético
    es la decisión final para la demo (está permitido por las reglas).
