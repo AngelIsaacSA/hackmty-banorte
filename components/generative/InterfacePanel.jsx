@@ -22,39 +22,26 @@ export default function InterfacePanel({
 
   if (collapsed) {
     return (
-      <>
-        <div className="hidden shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-4 md:flex md:w-14">
-          <button
-            type="button"
-            onClick={onExpand}
-            title="Ver interfaz generada"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-banorte-red text-white shadow-sm shadow-red-500/25 transition hover:bg-banorte-dark-red"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={onExpand}
-          className="fixed bottom-28 right-4 z-30 flex items-center gap-2 rounded-full bg-banorte-red px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-red-500/30 md:hidden"
-        >
-          <SparkIcon className="h-4 w-4" />
-          Ver interfaz
-        </button>
-      </>
+      <button
+        type="button"
+        onClick={onExpand}
+        className="fixed bottom-24 right-4 z-30 flex items-center gap-2 rounded-full bg-banorte-red px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-red-500/30 animate-in fade-in slide-in-from-bottom-2 duration-200 sm:bottom-6"
+      >
+        <SparkIcon className="h-4 w-4" />
+        Ver interfaz generada
+      </button>
     )
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center md:static md:inset-auto md:z-auto md:block">
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6">
       <div
-        className="absolute inset-0 bg-slate-900/30 md:hidden"
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={onCollapse}
         aria-hidden="true"
       />
 
-      <section className="relative z-10 flex h-[60vh] w-full flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl md:h-full md:w-[420px] md:shrink-0 md:rounded-2xl md:shadow-sm">
+      <section className="relative z-10 flex h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-300 sm:h-[82vh]">
         <header className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
           <button
             type="button"
@@ -82,7 +69,7 @@ export default function InterfacePanel({
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           {current && (
             <GenerativeToolResult
               output={current}

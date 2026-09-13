@@ -121,7 +121,7 @@ export default function BanorteChat() {
   }
 
   return (
-    <div className="mx-auto flex w-full min-h-0 max-w-6xl flex-1 items-stretch gap-4 px-4 py-6 sm:px-6 md:py-10">
+    <div className="mx-auto flex w-full min-h-0 max-w-3xl flex-1 flex-col px-4 py-6 sm:px-6 md:py-10">
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className={`flex flex-col ${hasMessages ? "" : "flex-1 justify-center"}`}>
           <BrandHeader compact={hasMessages} />
