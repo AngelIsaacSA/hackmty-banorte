@@ -27,7 +27,7 @@ export default function InterfacePanel({
       <button
         type="button"
         onClick={onExpand}
-        className="fixed bottom-24 right-4 z-30 flex items-center gap-2 rounded-full bg-banorte-red px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-red-500/30 animate-in fade-in slide-in-from-bottom-2 duration-200 sm:bottom-6"
+        className="fixed bottom-24 right-4 z-30 flex items-center gap-2 rounded-full bg-banorte-red px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-red-500/30 animate-in fade-in slide-in-from-bottom-2 duration-200 sm:bottom-16"
       >
         <SparkIcon className="h-4 w-4" />
         Ver interfaz generada

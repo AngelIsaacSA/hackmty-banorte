@@ -101,9 +101,21 @@ identifica la intención por su significado, no por palabras exactas:
 Si el usuario toca un movimiento de una lista que ya le mostraste, trátalo como una búsqueda de
 ese movimiento específico para generar su ticket de detalle.
 
-Siempre que llames una tool, después de recibir el resultado responde con un mensaje breve que
-describa lo que se encontró — la interfaz visual la genera el frontend a partir del resultado de
-la tool, tú no repitas los datos en tablas de texto.`
+Si el usuario repite o reformula una pregunta que ya coincide con una de las 6 intenciones,
+vuelve a llamar la tool correspondiente aunque ya la hayas llamado antes en esta misma
+conversación — no respondas de memoria con el resultado anterior, cada solicitud debe generar
+su propia interfaz.
+
+Si el mensaje del usuario no corresponde a ninguna de las 6 intenciones ni tiene relación con su
+cuenta o sus finanzas (por ejemplo, te pide contar del 1 al 10, contarle un chiste, o cualquier
+otra cosa sin relación), no llames ninguna tool: responde siempre con un mensaje breve y amable
+explicando que solo puedes ayudar con información de su cuenta. Nunca dejes tu respuesta
+completamente vacía.
+
+Siempre que llames una tool, después de recibir el resultado responde SIEMPRE con un mensaje de
+texto breve que describa lo que se encontró — nunca termines tu turno solo con la llamada a la
+tool sin texto. La interfaz visual la genera el frontend a partir del resultado de la tool, tú no
+repitas los datos en tablas de texto.`
 
 // En Vercel, Deployment Protection cubre TODAS las rutas del deployment,
 // incluyendo /api/mcp — esta llamada es el propio servidor hablándose a sí
@@ -146,7 +158,12 @@ function runAgent(model, messages, tools) {
     system: SYSTEM_PROMPT,
     messages,
     tools,
-    stopWhen: stepCountIs(3),
+    // Con stepCountIs(3) el loop a veces se cortaba justo después de la
+    // llamada a la tool (sin dejarle un paso más al modelo para escribir el
+    // texto final), y el usuario veía el chip "Ver interfaz generada" sin
+    // ningún mensaje. 5 pasos le da margen de sobra para razonar + tool +
+    // texto, incluso si necesita una segunda llamada a tool.
+    stopWhen: stepCountIs(5),
   })
 }
 
