@@ -347,6 +347,24 @@ accionable solo se podía disparar escribiendo texto en el chat).
 
 ## Bitácora técnica — bugs reales y por qué se resolvieron así
 
+- **El chip "Ver interfaz generada" de un mensaje viejo abría la interfaz
+  equivocada**: `onOpenInterface` en `banorte-chat.jsx` ignoraba por completo
+  el `messageId` que le mandaba `message-list.jsx` — sin importar cuál chip
+  tocaras, siempre mostraba `findLatestInterface(messages)` (la más
+  reciente). Encontrado por feedback directo probando la app: si preguntabas
+  historial y luego proyección, el chip del historial también abría
+  proyección. Se reemplazó `findLatestInterface` por `findAllInterfaces`
+  (regresa todas, con su `messageId`) + un estado `activeInterfaceKey` que
+  `onOpenInterface` sí actualiza según qué mensaje se tocó.
+- **El botón X del panel era contraproducente**: visualmente se ve como
+  "cerrar esta ventana" pero antes ejecutaba `resetAll` (borraba TODA la
+  conversación) — sorprendía al usuario, que esperaba un cierre inocuo igual
+  que el botón "Chat". Se separaron las dos acciones: X y "Chat" ahora
+  colapsan el panel sin borrar nada; el reset total (regla 5 del PDF de
+  interfaz: "al cerrar se borra todo") se movió a un botón explícito
+  "Nueva conversación" en el header del chat, fuera del panel, para que sea
+  una acción deliberada y no una sorpresa.
+
 - **`getHistorial`/`getProyeccion` con Supabase real usaban `new Date()` como
   "hoy"**: el dataset de demo está sembrado solo en agosto 2026, pero en
   cuanto la fecha real pasa de agosto (que es justo lo que ya pasó — hoy es

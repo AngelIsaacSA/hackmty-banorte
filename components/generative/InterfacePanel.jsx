@@ -10,7 +10,6 @@ export default function InterfacePanel({
   collapsed,
   onCollapse,
   onExpand,
-  onClose,
   onSelectMovimiento,
   onElegirPlan,
   onVerHistorial,
@@ -62,8 +61,8 @@ export default function InterfacePanel({
 
           <button
             type="button"
-            onClick={onClose}
-            title="Cerrar y empezar de nuevo"
+            onClick={onCollapse}
+            title="Cerrar"
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-banorte-red"
           >
             <XIcon className="h-4 w-4" />

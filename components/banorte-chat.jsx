@@ -5,6 +5,7 @@ import { DefaultChatTransport } from "ai"
 import { useEffect, useMemo, useRef, useState } from "react"
 import ChatHero, { BrandHeader } from "./chat-hero"
 import InterfacePanel from "./generative/InterfacePanel"
+import { XIcon } from "./icons"
 import MessageList from "./message-list"
 import PromptInput from "./prompt-input"
 
@@ -15,14 +16,14 @@ function normalizeScreens(output) {
   return null
 }
 
-// Recorre los mensajes de atrás hacia adelante y regresa la última interfaz
-// generada (screens ya normalizado a arreglo), o null si no hay ninguna.
-// Esto es lo que hace que el panel "recuerde" en qué interfaz estaba: como
-// se deriva de `messages` (que useChat nunca borra salvo un reset), colapsar
-// y reabrir el panel siempre cae en la misma interfaz sin estado adicional.
-function findLatestInterface(messages) {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i]
+// Recorre todos los mensajes y regresa CADA interfaz generada (screens ya
+// normalizado a arreglo), en el orden en que se generaron, con el id del
+// mensaje al que pertenece cada una. El chip "Ver interfaz generada" de un
+// mensaje viejo debe abrir SU interfaz, no la más reciente de todo el chat
+// — por eso se necesita la lista completa, no solo la última.
+function findAllInterfaces(messages) {
+  const interfaces = []
+  for (const message of messages) {
     if (message.role !== "assistant") continue
 
     const parts = (message.parts || []).filter(
@@ -34,11 +35,12 @@ function findLatestInterface(messages) {
       if (part.state !== "output-available") continue
       const screens = normalizeScreens(part.output)
       if (screens) {
-        return { key: `${message.id}-${part.type}-${j}`, screens }
+        interfaces.push({ key: `${message.id}-${part.type}-${j}`, messageId: message.id, screens })
+        break
       }
     }
   }
-  return null
+  return interfaces
 }
 
 export default function BanorteChat() {
@@ -51,10 +53,14 @@ export default function BanorteChat() {
   const [panelCollapsed, setPanelCollapsed] = useState(false)
   const [screenIndexByKey, setScreenIndexByKey] = useState({})
   const [lastSeenKey, setLastSeenKey] = useState(null)
+  const [activeInterfaceKey, setActiveInterfaceKey] = useState(null)
 
   const hasMessages = messages.length > 0
   const isBusy = status === "submitted" || status === "streaming"
-  const activeInterface = useMemo(() => findLatestInterface(messages), [messages])
+  const allInterfaces = useMemo(() => findAllInterfaces(messages), [messages])
+  const latestInterface = allInterfaces[allInterfaces.length - 1] ?? null
+  const activeInterface =
+    allInterfaces.find((i) => i.key === activeInterfaceKey) ?? latestInterface
 
   useEffect(() => {
     if (hasMessages) {
@@ -62,15 +68,17 @@ export default function BanorteChat() {
     }
   }, [messages, hasMessages])
 
-  // Cuando llega una interfaz nueva (una que no habíamos visto), el panel se
-  // expande solo. Si el usuario reabre una que ya vio (tras colapsar), no se
-  // vuelve a forzar la expansión aquí — eso lo dispara el chip del chat o el
-  // botón de expandir del panel colapsado. Se ajusta durante el render (no
-  // en un efecto) siguiendo el patrón recomendado por React para "resetear"
-  // estado cuando cambia algo derivado de props/estado externo.
-  const activeKey = activeInterface?.key ?? null
-  if (activeKey && activeKey !== lastSeenKey) {
-    setLastSeenKey(activeKey)
+  // Cuando llega una interfaz nueva (una que no habíamos visto), se vuelve la
+  // activa y el panel se expande solo. Si el usuario reabre una que ya vio
+  // (tras colapsar, o el chip de un mensaje viejo), no se fuerza la
+  // expansión aquí — eso lo dispara onOpenInterface o el botón de expandir
+  // del panel colapsado. Se ajusta durante el render (no en un efecto)
+  // siguiendo el patrón recomendado por React para "resetear" estado cuando
+  // cambia algo derivado de props/estado externo.
+  const latestKey = latestInterface?.key ?? null
+  if (latestKey && latestKey !== lastSeenKey) {
+    setLastSeenKey(latestKey)
+    setActiveInterfaceKey(latestKey)
     setPanelCollapsed(false)
   }
 
@@ -103,6 +111,14 @@ export default function BanorteChat() {
     send('Muéstrame mis últimos movimientos de este mes.')
   }
 
+  // El chip "Ver interfaz generada" de un mensaje debe abrir la interfaz de
+  // ESE mensaje, no siempre la más reciente del chat.
+  const onOpenInterface = (messageId) => {
+    const match = allInterfaces.find((i) => i.messageId === messageId)
+    if (match) setActiveInterfaceKey(match.key)
+    setPanelCollapsed(false)
+  }
+
   const screenIndex = activeInterface ? screenIndexByKey[activeInterface.key] ?? 0 : 0
 
   const setScreenIndex = (index) => {
@@ -122,13 +138,29 @@ export default function BanorteChat() {
     setPanelCollapsed(false)
     setScreenIndexByKey({})
     setLastSeenKey(null)
+    setActiveInterfaceKey(null)
   }
 
   return (
     <div className="mx-auto flex w-full min-h-0 max-w-3xl flex-1 flex-col px-4 py-6 sm:px-6 md:py-10">
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className={`flex flex-col ${hasMessages ? "" : "flex-1 justify-center"}`}>
-          <BrandHeader compact={hasMessages} />
+          {hasMessages ? (
+            <div className="flex items-center justify-between">
+              <BrandHeader compact />
+              <button
+                type="button"
+                onClick={resetAll}
+                title="Terminar conversación y empezar de nuevo"
+                className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-banorte-red hover:text-banorte-red"
+              >
+                <XIcon className="h-3.5 w-3.5" />
+                Nueva conversación
+              </button>
+            </div>
+          ) : (
+            <BrandHeader />
+          )}
           {!hasMessages && <ChatHero onQuick={send} />}
         </div>
 
@@ -138,7 +170,7 @@ export default function BanorteChat() {
               messages={messages}
               status={status}
               bottomRef={bottomRef}
-              onOpenInterface={() => setPanelCollapsed(false)}
+              onOpenInterface={onOpenInterface}
             />
           </div>
         )}
@@ -162,7 +194,6 @@ export default function BanorteChat() {
           collapsed={panelCollapsed}
           onCollapse={() => setPanelCollapsed(true)}
           onExpand={() => setPanelCollapsed(false)}
-          onClose={resetAll}
           onSelectMovimiento={onSelectMovimiento}
           onElegirPlan={onElegirPlan}
           onVerHistorial={onVerHistorial}
