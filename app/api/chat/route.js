@@ -54,9 +54,21 @@ Siempre que llames una tool, después de recibir el resultado responde con un me
 describa lo que se encontró — la interfaz visual la genera el frontend a partir del resultado de
 la tool, tú no repitas los datos en tablas de texto.`
 
+// En Vercel, Deployment Protection cubre TODAS las rutas del deployment,
+// incluyendo /api/mcp — esta llamada es el propio servidor hablándose a sí
+// mismo, pero igual la bloquea (401) si no manda el bypass. Localmente
+// VERCEL_AUTOMATION_BYPASS_SECRET no existe, así que el header no se manda
+// y no afecta nada.
+function bypassHeaders() {
+  const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+  return secret ? { 'x-vercel-protection-bypass': secret } : {}
+}
+
 async function getMcpTools(origin) {
   const client = new Client({ name: 'banorte-chat-agent', version: '1.0.0' })
-  const transport = new StreamableHTTPClientTransport(new URL(`${origin}/api/mcp`))
+  const transport = new StreamableHTTPClientTransport(new URL(`${origin}/api/mcp`), {
+    requestInit: { headers: bypassHeaders() },
+  })
   await client.connect(transport)
 
   const { tools: mcpTools } = await client.listTools()
