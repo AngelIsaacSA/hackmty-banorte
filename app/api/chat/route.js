@@ -12,9 +12,27 @@ import {
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
-const google = createGoogleGenerativeAI({
-  apiKey: process.env.GEMINI_API_KEY,
-})
+// Junta todas las keys de Gemini configuradas para rotar entre varias
+// cuentas gratis cuando una se queda sin cuota diaria (20 requests/día en
+// el tier gratis), en vez de depender de una sola. Nombres esperados en
+// .env.local / Vercel: GEMINI_API_KEY (la primera), GEMINI_API_KEY_2,
+// GEMINI_API_KEY_3, GEMINI_API_KEY_4... Se detiene en el primer número
+// faltante, así que no dejes huecos (si tienes 3 keys, usa _1(implícita)/_2/_3,
+// no te saltes a _4).
+function getGeminiModels() {
+  const models = []
+  let key = process.env.GEMINI_API_KEY
+  let index = 2
+
+  while (key) {
+    models.push(createGoogleGenerativeAI({ apiKey: key })('gemini-3.6-flash'))
+    key = process.env[`GEMINI_API_KEY_${index}`]
+    index += 1
+  }
+
+  return models
+}
+
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
 })
@@ -121,42 +139,55 @@ async function drainReaderInto(writer, reader) {
   }
 }
 
-// Corre el agente con `model`. Si el primer chunk útil que regresa es un
-// error (típicamente cuota/rate-limit agotada), no se le manda nada al
-// cliente todavía — se descarta y se reintenta con `fallbackModel`. Si el
-// primer intento sí funciona, se reenvía tal cual (sin gastar una segunda
-// llamada). Así Gemini y Groq nunca se llaman los dos para la misma pregunta
-// a menos que el primero falle. Espera a que el stream elegido termine por
-// completo antes de regresar, para no cerrar el cliente MCP a medias.
-async function writeWithFallback(writer, { model, fallbackModel, messages, tools }) {
+// Corre el agente con un modelo y lee hasta el primer chunk que confirme
+// progreso real o un error. No decide qué hacer con el resultado — eso lo
+// hace writeWithFallback, que es quien sabe si hay más modelos a los que
+// pasar.
+async function tryModel(model, messages, tools) {
   const reader = runAgent(model, messages, tools).toUIMessageStream().getReader()
   const buffered = []
-  let failed = false
 
   // "start" siempre es el primer chunk (éxito o error), así que hay que
   // seguir leyendo hasta ver algo que confirme progreso real o un error.
   while (true) {
     const { done, value } = await reader.read()
-    if (done) break
+    if (done) return { ok: true, buffered, reader }
 
     if (value.type === 'error') {
-      failed = true
-      break
+      await reader.cancel().catch(() => {})
+      return { ok: false, errorChunk: value }
     }
 
     buffered.push(value)
-    if (value.type !== 'start') break
+    if (value.type !== 'start') return { ok: true, buffered, reader }
+  }
+}
+
+// Prueba cada modelo de la lista en orden (típicamente: una o más keys de
+// Gemini rotando por si alguna se quedó sin cuota diaria, y Groq al final
+// como último recurso). Si el primer chunk útil de un modelo es un error,
+// no se le manda nada al cliente todavía — se descarta y se prueba el
+// siguiente. En cuanto uno responde bien, se reenvía tal cual y ya no se
+// prueban los demás (nunca se gastan dos cuotas para la misma pregunta a
+// menos que la primera falle). Si TODOS fallan, se manda el último error
+// al cliente — no hay de otra. Espera a que el stream elegido termine por
+// completo antes de regresar, para no cerrar el cliente MCP a medias.
+async function writeWithFallback(writer, { models, messages, tools }) {
+  let lastError = null
+
+  for (const model of models) {
+    const result = await tryModel(model, messages, tools)
+
+    if (result.ok) {
+      for (const chunk of result.buffered) writer.write(chunk)
+      await drainReaderInto(writer, result.reader)
+      return
+    }
+
+    lastError = result.errorChunk
   }
 
-  if (!failed) {
-    for (const chunk of buffered) writer.write(chunk)
-    await drainReaderInto(writer, reader)
-    return
-  }
-
-  await reader.cancel().catch(() => {})
-  const fallbackReader = runAgent(fallbackModel, messages, tools).toUIMessageStream().getReader()
-  await drainReaderInto(writer, fallbackReader)
+  if (lastError) writer.write(lastError)
 }
 
 export async function POST(req) {
@@ -165,16 +196,12 @@ export async function POST(req) {
 
   const { tools, client } = await getMcpTools(origin)
   const modelMessages = await convertToModelMessages(messages)
+  const models = [...getGeminiModels(), groq('openai/gpt-oss-120b')]
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       try {
-        await writeWithFallback(writer, {
-          model: google('gemini-3.6-flash'),
-          fallbackModel: groq('openai/gpt-oss-120b'),
-          messages: modelMessages,
-          tools,
-        })
+        await writeWithFallback(writer, { models, messages: modelMessages, tools })
       } finally {
         await client.close()
       }
