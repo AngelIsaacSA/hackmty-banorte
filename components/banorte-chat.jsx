@@ -49,6 +49,8 @@ export default function BanorteChat() {
   })
   const [input, setInput] = useState("")
   const bottomRef = useRef(null)
+  const scrollContainerRef = useRef(null)
+  const shouldStickToBottom = useRef(true)
 
   const [panelCollapsed, setPanelCollapsed] = useState(false)
   const [screenIndexByKey, setScreenIndexByKey] = useState({})
@@ -62,11 +64,26 @@ export default function BanorteChat() {
   const activeInterface =
     allInterfaces.find((i) => i.key === activeInterfaceKey) ?? latestInterface
 
+  // Antes esto pegaba el scroll hasta abajo en CADA cambio de `messages`,
+  // incluyendo cada token que llega mientras el agente sigue escribiendo —
+  // si el usuario intentaba subir a leer algo, el chat lo "jalaba" de
+  // vuelta abajo a cada rato y se sentía como que no se podía scrollear.
+  // Ahora solo se pega abajo si el usuario ya estaba cerca del final (igual
+  // que cualquier chat real: si subiste a leer historial, se respeta y no
+  // te regresa solo).
   useEffect(() => {
-    if (hasMessages) {
+    if (hasMessages && shouldStickToBottom.current) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" })
     }
   }, [messages, hasMessages])
+
+  function handleScroll() {
+    const container = scrollContainerRef.current
+    if (!container) return
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight
+    shouldStickToBottom.current = distanceFromBottom < 96
+  }
 
   // Cuando llega una interfaz nueva (una que no habíamos visto), se vuelve la
   // activa y el panel se expande solo. Si el usuario reabre una que ya vio
@@ -85,12 +102,14 @@ export default function BanorteChat() {
   const submit = () => {
     const text = input.trim()
     if (!text || isBusy) return
+    shouldStickToBottom.current = true
     sendMessage({ text })
     setInput("")
   }
 
   const send = (text) => {
     if (isBusy) return
+    shouldStickToBottom.current = true
     sendMessage({ text })
     setInput("")
   }
@@ -165,7 +184,11 @@ export default function BanorteChat() {
         </div>
 
         {hasMessages && (
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <div
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          >
             <MessageList
               messages={messages}
               status={status}
