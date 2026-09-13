@@ -345,6 +345,41 @@ accionable solo se podía disparar escribiendo texto en el chat).
   opciones, no la confirmación) — hay que darle "Siguiente" para ver la
   segunda pantalla, no es un bug.
 
+## Avance en feature/auth-biometrico
+
+Pantalla de login con WebAuthn real (huella/Face ID vía el navegador) antes
+de llegar al chat. No es un mockup — usa `navigator.credentials.create/get`
+de verdad.
+
+- `app/login/page.jsx` — pantalla de login. Registra un credential
+  biométrico la primera vez (`navigator.credentials.create`) y lo guarda en
+  `localStorage`; en visitas siguientes solo pide la verificación
+  (`navigator.credentials.get`) contra ese mismo credential ID.
+- `components/auth-gate.jsx` — envuelve `app/page.jsx`. Usa
+  `useSyncExternalStore` para leer un flag en `sessionStorage`
+  (`banorte-demo-biometric-session`); si no está autenticado, redirige a
+  `/login`. `getServerSession()` regresa `false` a propósito (evita
+  mismatch de hidratación) — por eso el HTML del server siempre muestra un
+  spinner "Verificando sesión" antes de que el cliente decida.
+- Como solo existe un usuario demo (Carlos Ramírez Mendoza), el login NO
+  toca `cuenta_id` ni ningún archivo del backend (`lib/queries.js`,
+  `app/api/mcp/route.js`, `app/api/chat/route.js`) — es puramente una
+  puerta de entrada, no un sistema multi-usuario.
+- **Nota de consistencia, no bug**: usa íconos de `lucide-react` (ya estaba
+  en `package.json`, no se instaló nada nuevo) — es la única pantalla de
+  toda la app que no usa los SVG propios de `components/icons.jsx`. No
+  viola la regla del reto (el login no es un componente que invoque el
+  agente, esa regla aplica a `components/generative/*`), pero rompe la
+  consistencia visual/de código. Si da tiempo, cambiar esos 6 íconos
+  (`ArrowRight`, `CircleAlert`, `Fingerprint`, `LoaderCircle`, `ScanFace`,
+  `ShieldCheck`) por equivalentes en `icons.jsx`.
+- **Pendiente de probar por un humano**: la ceremonia real de WebAuthn
+  (pedir huella/Face ID) no se puede probar por curl/CI — necesita un
+  navegador real con hardware biométrico y un gesto del usuario. Build y
+  rutas verificados (`/` y `/login` cargan bien, `/` muestra el gate
+  correctamente sin sesión), pero el flujo end-to-end de tocar el sensor
+  todavía no lo confirmó nadie.
+
 ## Bitácora técnica — bugs reales y por qué se resolvieron así
 
 - **El chip "Ver interfaz generada" de un mensaje viejo abría la interfaz
