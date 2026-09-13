@@ -57,8 +57,10 @@ ciclo interacción → nueva interfaz que pide el reto.
 - `components/generative/` — los 3 componentes que genera el agente
   (`MovimientosList`, `MovimientoTicket`, `ProyeccionCard`)
 
-## Estado del proyecto y decisiones técnicas
+## Documentación
 
-Ver [`CONTEXT.md`](./CONTEXT.md) — bitácora técnica completa y actualizada:
-qué funciona, bugs reales encontrados y cómo se resolvieron, esquema de
-Supabase, y qué falta.
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — diagrama de arquitectura y flujo completo
+- [`DECISIONS.md`](./DECISIONS.md) — decisiones técnicas y tradeoffs (por qué cada elección)
+- [`CONTEXT.md`](./CONTEXT.md) — bitácora técnica completa y actualizada:
+  qué funciona, bugs reales encontrados y cómo se resolvieron, esquema de
+  Supabase, y qué falta
