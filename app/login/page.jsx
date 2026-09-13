@@ -158,6 +158,12 @@ export default function LoginPage() {
     }
   }
 
+  function resetCredential() {
+    localStorage.removeItem(CREDENTIAL_STORAGE_KEY)
+    setCredentialId(null)
+    setError('')
+  }
+
   const isReady = support === 'ready'
   const isRegistered = Boolean(credentialId)
 
@@ -243,6 +249,17 @@ export default function LoginPage() {
               </>
             )}
           </button>
+
+          {isRegistered && (
+            <button
+              type="button"
+              onClick={resetCredential}
+              disabled={isAuthenticating}
+              className="mt-3 w-full text-center text-xs font-semibold text-slate-400 underline-offset-2 transition hover:text-banorte-red hover:underline disabled:cursor-not-allowed"
+            >
+              ¿No reconoce tu huella en este dispositivo? Registrar de nuevo
+            </button>
+          )}
 
           <div className="mt-6 flex items-start gap-3 rounded-xl bg-slate-50 px-4 py-3 text-left">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
