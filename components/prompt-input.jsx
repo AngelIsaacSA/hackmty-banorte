@@ -37,19 +37,13 @@ export default function PromptInput({ value, onChange, onSubmit, onSuggestion, d
     }
   }
 
-  const toggleVoice = () => {
-    if (isListening) {
-      recognitionRef.current?.stop()
-      return
-    }
-
+  const startRecognition = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
       setVoiceError("Este navegador no soporta dictado por voz. Prueba en Chrome o Edge.")
       return
     }
 
-    setVoiceError("")
     const recognition = new SpeechRecognition()
     recognition.lang = "es-MX"
     recognition.interimResults = true
@@ -70,6 +64,10 @@ export default function PromptInput({ value, onChange, onSubmit, onSuggestion, d
     recognition.onerror = (event) => {
       if (event.error === "not-allowed") {
         setVoiceError("Activa el permiso del micrófono para dictar.")
+      } else if (event.error === "audio-capture") {
+        setVoiceError("No se detectó micrófono en este dispositivo.")
+      } else if (event.error === "network") {
+        setVoiceError("Sin conexión al servicio de voz, revisa tu internet.")
       } else if (event.error !== "no-speech" && event.error !== "aborted") {
         setVoiceError("No se pudo escuchar el audio, intenta de nuevo.")
       }
@@ -81,6 +79,38 @@ export default function PromptInput({ value, onChange, onSubmit, onSuggestion, d
     recognitionRef.current = recognition
     recognition.start()
     setIsListening(true)
+  }
+
+  const toggleVoice = async () => {
+    if (isListening) {
+      recognitionRef.current?.stop()
+      return
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setVoiceError("Este navegador no soporta dictado por voz. Prueba en Chrome o Edge.")
+      return
+    }
+
+    setVoiceError("")
+
+    // Pedir el permiso de micrófono por separado, ANTES de iniciar
+    // SpeechRecognition, evita una carrera conocida en Chrome/Android:
+    // si el diálogo de permiso aparece a la vez que arranca el
+    // reconocimiento, la sesión de voz puede morir en silencio y el
+    // primer intento del usuario simplemente no hace nada.
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach((track) => track.stop())
+      } catch {
+        setVoiceError("Activa el permiso del micrófono para dictar.")
+        return
+      }
+    }
+
+    startRecognition()
   }
 
   return (
@@ -113,9 +143,10 @@ export default function PromptInput({ value, onChange, onSubmit, onSuggestion, d
           <button
             type="button"
             onClick={toggleVoice}
+            onContextMenu={(event) => event.preventDefault()}
             disabled={disabled}
             title={isListening ? "Detener dictado" : "Activar entrada de voz"}
-            className={`rounded-full p-2.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`select-none touch-manipulation rounded-full p-2.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
               isListening
                 ? "animate-pulse bg-red-50 text-banorte-red"
                 : "text-slate-400 hover:bg-slate-100 hover:text-banorte-red"
