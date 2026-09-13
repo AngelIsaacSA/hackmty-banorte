@@ -291,6 +291,22 @@ de `tarjeta` documentados arriba.
 
 ## Bitácora técnica — bugs reales y por qué se resolvieron así
 
+- **`getHistorial`/`getProyeccion` con Supabase real usaban `new Date()` como
+  "hoy"**: el dataset de demo está sembrado solo en agosto 2026, pero en
+  cuanto la fecha real pasa de agosto (que es justo lo que ya pasó — hoy es
+  septiembre 2026), "este mes" y la proyección consultan un rango sin datos
+  y regresan todo vacío/en cero. Se encontró probando en vivo contra
+  Supabase real (con las env vars de verdad, cosa que Codex no pudo hacer en
+  su sandbox). Arreglado: `getFechaReferencia(cuentaId)` consulta el
+  `movimiento` más reciente de la cuenta y esa fecha se usa como "hoy" en
+  vez del reloj real — así el historial y la proyección siempre trabajan
+  sobre el mes que sí tiene datos, sin importar cuándo se corra la demo.
+  Para `getProyeccion` específicamente esa fecha se recorre 3 días atrás
+  (mismo ajuste que ya hacía el dataset sintético original a propósito, día
+  28 de 31) porque anclar "hoy" al último movimiento literal deja 0 días
+  restantes y $0 proyectado — técnicamente correcto pero sin nada que
+  mostrar en la demo.
+
 - **`convertToModelMessages()` es async en AI SDK 7** — si no le pones
   `await`, `streamText` truena con `messages.some is not a function`.
 - **`gemini-2.5-flash` fue dado de baja** por Google para proyectos nuevos
@@ -357,15 +373,13 @@ de `tarjeta` documentados arriba.
    para el caso `{ screens: [...] }`) — hay que confirmar que el panel
    navegue bien sus 2 pantallas reales y que `PlanPagoOpciones` se vea
    correcto ahí dentro.
-2. Conectar `lib/queries.js` al esquema real de Supabase — Codex ya lo hizo
-   en `feature/supabase-real` (commit `3b4de76`, reemplaza el mock por
-   consultas reales a `cuenta`/`movimiento`/`categoria`/`recurrente`,
-   `getProyeccion()` usa `cuenta.saldo` + `recurrente`), **pero esa rama
-   nunca se subió a GitHub** — solo existe en el checkout local de esa
-   sesión. Hay que pedirle que haga `git push`, y luego mergearla aquí igual
-   que las otras dos (probablemente choque con `lib/queries.js`, que ahora
-   también trae `TARJETA`/`getPlanPago`/`aplicarPlanPago` del flujo
-   accionable — hay que conciliar ambos, no pisar uno con otro).
+2. ~~Conectar `lib/queries.js` al esquema real de Supabase~~ — hecho.
+   `feature/supabase-real` (Codex, commit `3b4de76`) ya está mergeada en
+   `feature/integracion`. `getHistorial`/`buscarMovimiento`/`getProyeccion`
+   consultan `cuenta`/`movimiento`/`categoria`/`recurrente` de verdad; el
+   merge con `TARJETA`/`getPlanPago`/`aplicarPlanPago` (mock, del flujo
+   accionable) fue automático sin conflictos porque tocan partes distintas
+   del archivo.
 3. Entregables: ya existen `README.md`, `ARCHITECTURE.md` y `DECISIONS.md`
    en la raíz — falta mantenerlos al día conforme se mergeen las piezas que
    faltan.
