@@ -152,26 +152,44 @@ async function drainReaderInto(writer, reader) {
 }
 
 // Corre el agente con un modelo y lee hasta el primer chunk que confirme
-// progreso real o un error. No decide qué hacer con el resultado — eso lo
-// hace writeWithFallback, que es quien sabe si hay más modelos a los que
-// pasar.
+// progreso REAL (texto de verdad, o un resultado de tool ya exitoso) o un
+// error. No decide qué hacer con el resultado — eso lo hace
+// writeWithFallback, que es quien sabe si hay más modelos a los que pasar.
+//
+// Bug real que esto arregla: antes se comprometía al primer chunk distinto
+// de "start" (por ejemplo "tool-input-start", que solo confirma que el
+// modelo EMPEZÓ a armar una tool call). Si la cuota se acababa a media
+// tool call, el fallo llegaba después, como un chunk "tool-output-error"
+// — que ya no se revisaba porque ya nos habíamos comprometido a ese
+// modelo. Ahora se sigue leyendo (sin mandarle nada al cliente todavía) a
+// través de los chunks que solo son "preparación" (start-step,
+// tool-input-*, reasoning-*) hasta ver algo definitivo.
+const PREPARATION_CHUNK_TYPES = new Set([
+  'start',
+  'start-step',
+  'reasoning-start',
+  'reasoning-delta',
+  'reasoning-end',
+  'tool-input-start',
+  'tool-input-delta',
+  'tool-input-available',
+])
+
 async function tryModel(model, messages, tools) {
   const reader = runAgent(model, messages, tools).toUIMessageStream().getReader()
   const buffered = []
 
-  // "start" siempre es el primer chunk (éxito o error), así que hay que
-  // seguir leyendo hasta ver algo que confirme progreso real o un error.
   while (true) {
     const { done, value } = await reader.read()
     if (done) return { ok: true, buffered, reader }
 
-    if (value.type === 'error') {
+    if (value.type === 'error' || value.type === 'tool-output-error') {
       await reader.cancel().catch(() => {})
       return { ok: false, errorChunk: value }
     }
 
     buffered.push(value)
-    if (value.type !== 'start') return { ok: true, buffered, reader }
+    if (!PREPARATION_CHUNK_TYPES.has(value.type)) return { ok: true, buffered, reader }
   }
 }
 
