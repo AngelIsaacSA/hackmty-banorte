@@ -45,10 +45,14 @@ Usuario (banorte-chat.jsx, useChat)
       → get_historial / buscar_movimiento / get_proyeccion
       → cada tool llama lib/queries.js y regresa { component, data }
   → el resultado de la tool viaja de vuelta como parte del mensaje
-  → components/message-list.jsx lee las partes tool-* y las manda a
-    components/generative/GenerativeToolResult.jsx, que elige el componente
+  → components/message-list.jsx lee las partes tool-* y solo pinta un chip
+    "Ver interfaz generada" (la tarjeta ya no va inline en la burbuja)
+  → components/banorte-chat.jsx encuentra la última interfaz generada en
+    `messages` y se la pasa a components/generative/InterfacePanel.jsx, el
+    panel/canvas que vive al lado del chat (o encima en mobile)
+  → InterfacePanel usa GenerativeToolResult.jsx para elegir el componente
     real (MovimientosList / MovimientoTicket / ProyeccionCard) según
-    output.component
+    output.component, con navegación si output.screens trae varias
   → tocar un movimiento en MovimientosList dispara onSelectMovimiento, que
     manda un mensaje nuevo al agente con los datos de ese movimiento, y el
     agente regresa MovimientoTicket — así se cierra el ciclo "lo que la
@@ -59,9 +63,14 @@ Archivos clave:
 - `app/api/chat/route.js` — orquesta Gemini/Groq + cliente MCP
 - `app/api/mcp/route.js` — servidor MCP, las 3 tools
 - `lib/queries.js` — capa de datos (dataset sintético + lógica de búsqueda)
-- `components/banorte-chat.jsx` — contenedor del chat (useChat, estado)
-- `components/message-list.jsx` — renderiza mensajes + interfaz generada
-- `components/generative/*.jsx` — los 3 componentes generativos
+- `components/banorte-chat.jsx` — contenedor del chat (useChat, estado,
+  deriva la interfaz activa para el panel)
+- `components/message-list.jsx` — renderiza mensajes + el chip que abre el
+  panel (ya no la interfaz completa inline)
+- `components/generative/InterfacePanel.jsx` — el panel/canvas: layout,
+  colapsar/expandir, cerrar (reset total), navegación multi-pantalla
+- `components/generative/*.jsx` — los 3 componentes generativos +
+  `GenerativeToolResult.jsx` (elige cuál pintar)
 - `components/chat-hero.jsx`, `prompt-input.jsx`, `main-header.jsx`, etc. —
   UI/identidad Banorte (rediseño de natwDX, no tocar el diseño sin avisar)
 
@@ -144,7 +153,7 @@ diagrama de arquitectura y decisiones/tradeoffs.
 **Consejo del reto:** un solo flujo resuelto completo vale más que cinco
 pantallas a medias.
 
-## Nueva dirección de UI — "vida de la interfaz" (pendiente de implementar)
+## Nueva dirección de UI — "vida de la interfaz" (implementado en `feature/interfaz-canvas`)
 
 Fuente: `banorteaiexplicacion.pdf` (un inge del reto ya dio luz verde a este
 patrón). Cambia cómo se debe mostrar la interfaz generada — hoy la pintamos
@@ -193,6 +202,41 @@ distintas. Para que ninguna de las dos rompa a la otra, este es el
   accionable) — el panel solo decide layout y navegación, no duplica lógica
   de cada tarjeta.
 
+**Cómo quedó implementado** (`components/generative/InterfacePanel.jsx` +
+cambios en `components/banorte-chat.jsx` y `components/message-list.jsx`):
+
+- Desktop (`md:` y arriba): panel fijo de 420px al lado del chat, mismo alto
+  (`items-stretch` en el contenedor de `banorte-chat.jsx`), ambos usables al
+  mismo tiempo. Mobile: bottom-sheet de 60vh con backdrop — deja la parte de
+  arriba del chat visible/tocable (tap en el backdrop también colapsa).
+- `message-list.jsx` ya no pinta la tarjeta completa inline — solo un chip
+  "Ver interfaz generada" (o "Consultando tu información…" mientras no está
+  lista) que abre/expande el panel. La tarjeta real vive únicamente en el
+  panel, vía `GenerativeToolResult`.
+- El panel se deriva de `messages` (no de estado aparte): `findLatestInterface`
+  en `banorte-chat.jsx` recorre los mensajes de atrás hacia adelante buscando
+  la última parte `tool-*`/`dynamic-tool` con `state: "output-available"`, y
+  normaliza `{component,data}` → `{screens:[{component,data}]}` para que el
+  panel siempre trabaje con un arreglo. Por eso colapsar/expandir no pierde
+  nada: el contenido se recalcula solo, lo único que se guarda aparte es el
+  índice de pantalla activa por interfaz (`screenIndexByKey`, llave =
+  `messageId-partType-índice`) para que una interfaz de N pantallas recuerde
+  en cuál te quedaste.
+- Colapsar (flecha "Chat"): en desktop se vuelve un riel delgado de 56px con
+  un botón para reexpandir; en mobile desaparece y deja un pill flotante
+  "Ver interfaz". Ninguno de los dos destruye el estado.
+- Cerrar (X): `stop()` de `useChat` + `setMessages([])` + limpiar el estado
+  del panel. El `stop()` es importante — sin él, si cierras mientras el
+  agente todavía está generando una respuesta, esa respuesta llega después
+  y "revive" el chat que acababas de cerrar (bug real que apareció al
+  probarlo, no solo teórico).
+- Probado a mano con datos falsos para el caso `{ screens: [...] }` (interceptando
+  la respuesta de `/api/chat` con Playwright) ya que la tool del flujo
+  accionable todavía no existe — navegación anterior/siguiente, contador
+  "x/N", puntos y que el índice sobreviva a colapsar/expandir, todo
+  verificado así. Cuando exista la tool real de N pantallas no debería hacer
+  falta tocar `InterfacePanel.jsx`, solo que la tool regrese ese shape.
+
 ## Avance en feature/flujo-accionable
 
 Primer flujo accionable del reto (regla #3): reestructura del saldo de una
@@ -240,7 +284,10 @@ de `tarjeta` documentados arriba.
   por chat con fallback a Groq porque la cuota de Gemini seguía agotada):
   `get_plan_pago` calcula bien las 3 opciones, `aplicar_plan_pago` muta la
   tarjeta y regresa las 2 pantallas correctas. `pnpm exec eslint .` y
-  `pnpm build` limpios.
+  `pnpm build` limpios. **Falta probar** que `InterfacePanel.jsx` (probado
+  ahí solo con datos falsos) navegue bien las 2 pantallas reales que regresa
+  `aplicar_plan_pago` ahora que ambas ramas ya están juntas en
+  `feature/integracion` — ver Pendientes.
 
 ## Bitácora técnica — bugs reales y por qué se resolvieron así
 
@@ -274,6 +321,24 @@ de `tarjeta` documentados arriba.
   no existe todavía porque no hay auth/sesión. Si se retoma, hay que decidir
   primero de dónde sale ese `cuenta_id` (usuario fijo tipo demo está bien
   para el hackathon).
+- **Cerrar el chat sin `stop()` no es un reset real**: `setMessages([])` solo
+  vacía el arreglo en ese instante. Si había una respuesta en curso (el
+  usuario cerró justo después de tocar un movimiento, por ejemplo), esa
+  respuesta sigue viva en el `fetch`/stream de `useChat` y cuando termina se
+  inserta de vuelta en `messages` — el chat "revive" solo, con contenido
+  viejo, después de que ya se había cerrado. Hay que llamar `stop()` (lo
+  regresa `useChat`) antes de `setMessages([])`. Se reprodujo de verdad
+  interceptando el stream con Playwright y forzando el cierre a mitad de una
+  respuesta — no es un caso hipotético.
+- **`scrollIntoView` en un layout sin scroll acotado mueve toda la página**:
+  antes de tener un panel al lado, que `bottomRef.scrollIntoView()` scrolleara
+  la ventana completa no se notaba. En cuanto hay un panel como hermano del
+  chat, ese scroll de página saca el header del panel (con los botones de
+  volver/cerrar) fuera de la vista sin que se note por qué. La solución no es
+  tocar el `scrollIntoView` sino contener el scroll: `app/page.jsx` pasó de
+  `min-h-dvh` a `h-dvh overflow-hidden`, y el área de mensajes en
+  `banorte-chat.jsx` tiene su propio `overflow-y-auto` — así el scroll queda
+  encerrado ahí y el resto del layout (header, panel) no se mueve.
 - **`feature/chat-ui` se integró dos veces**: se rediseñó por completo
   después de la primera integración (commits de "natwDX") y se volvió a
   desincronizar del MCP — tenía un TODO literal sin resolver para renderizar
@@ -283,17 +348,29 @@ de `tarjeta` documentados arriba.
 
 ## Pendientes (por prioridad)
 
-1. ~~**Flujo accionable**~~ — resuelto en `feature/flujo-accionable` (ver
-   sección de abajo): `get_plan_pago` + `aplicar_plan_pago`.
-2. **Nuevo patrón de interfaz** (ver sección de arriba) — decidir alcance e
-   implementarlo. `aplicar_plan_pago` ya regresa `{ screens: [...] }`
-   siguiendo el contrato acordado, listo para que el panel/canvas lo consuma.
-3. Conectar `lib/queries.js` al esquema real de Supabase (ya no es "falta
-   definirlo", es "falta adaptarlo") — o formalizar que el dataset sintético
-   es la decisión final para la demo (está permitido por las reglas).
-4. Entregables: README con instrucciones de cómo correr el proyecto,
-   diagrama de arquitectura, doc de decisiones/tradeoffs.
-5. Deploy final en Vercel + prueba end-to-end ahí (no solo local).
+1. ~~**Flujo accionable**~~ y ~~**nuevo patrón de interfaz**~~ — resueltos
+   por separado en `feature/flujo-accionable` (`get_plan_pago` +
+   `aplicar_plan_pago`, regla #3 del reto) y `feature/interfaz-canvas`
+   (`InterfacePanel.jsx`), ya mergeados juntos en `feature/integracion`.
+   **Falta la prueba conjunta**: `aplicar_plan_pago` nunca se probó pasando
+   por el panel real (interfaz-canvas solo usó datos falsos armados a mano
+   para el caso `{ screens: [...] }`) — hay que confirmar que el panel
+   navegue bien sus 2 pantallas reales y que `PlanPagoOpciones` se vea
+   correcto ahí dentro.
+2. Conectar `lib/queries.js` al esquema real de Supabase — Codex ya lo hizo
+   en `feature/supabase-real` (commit `3b4de76`, reemplaza el mock por
+   consultas reales a `cuenta`/`movimiento`/`categoria`/`recurrente`,
+   `getProyeccion()` usa `cuenta.saldo` + `recurrente`), **pero esa rama
+   nunca se subió a GitHub** — solo existe en el checkout local de esa
+   sesión. Hay que pedirle que haga `git push`, y luego mergearla aquí igual
+   que las otras dos (probablemente choque con `lib/queries.js`, que ahora
+   también trae `TARJETA`/`getPlanPago`/`aplicarPlanPago` del flujo
+   accionable — hay que conciliar ambos, no pisar uno con otro).
+3. Entregables: ya existen `README.md`, `ARCHITECTURE.md` y `DECISIONS.md`
+   en la raíz — falta mantenerlos al día conforme se mergeen las piezas que
+   faltan.
+4. Deploy final en Vercel + prueba end-to-end ahí (no solo local) — en
+   proceso, ver conversación del equipo para el estado más reciente.
 
 ## Notas importantes
 

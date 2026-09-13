@@ -1,5 +1,4 @@
-import { BanorteMark } from "./icons"
-import GenerativeToolResult from "./generative/GenerativeToolResult"
+import { BanorteMark, SparkIcon } from "./icons"
 
 function messageText(message) {
   return message.parts
@@ -14,43 +13,29 @@ function interfaceParts(message) {
   )
 }
 
-function GeneratedInterface({ message, isStreaming, onSelectMovimiento }) {
+function InterfaceChip({ message, onOpenInterface }) {
   const parts = interfaceParts(message)
+  if (parts.length === 0) return null
 
-  if (parts.length === 0) {
-    return isStreaming ? (
-      <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
-        Preparando tu resumen financiero…
+  const isReady = parts.some((part) => part.state === "output-available")
+
+  if (!isReady) {
+    return (
+      <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 shadow-sm">
+        Consultando tu información…
       </div>
-    ) : null
+    )
   }
 
   return (
-    <div className="space-y-3">
-      {parts.map((part, index) => {
-        const key = `${message.id}-${part.type}-${index}`
-        const isReady = part.state === "output-available"
-
-        if (!isReady) {
-          return (
-            <div
-              key={key}
-              className="flex items-center gap-2 overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm"
-            >
-              Consultando tu información…
-            </div>
-          )
-        }
-
-        return (
-          <GenerativeToolResult
-            key={key}
-            output={part.output}
-            onSelectMovimiento={onSelectMovimiento}
-          />
-        )
-      })}
-    </div>
+    <button
+      type="button"
+      onClick={() => onOpenInterface?.(message.id)}
+      className="flex items-center gap-1.5 rounded-full border border-banorte-red/30 bg-red-50 px-3 py-1.5 text-xs font-semibold text-banorte-red transition hover:bg-red-100"
+    >
+      <SparkIcon className="h-3.5 w-3.5" />
+      Ver interfaz generada
+    </button>
   )
 }
 
@@ -69,9 +54,7 @@ function Avatar({ role }) {
   )
 }
 
-export default function MessageList({ messages, status, bottomRef, onSelectMovimiento }) {
-  const isStreaming = status === "streaming"
-
+export default function MessageList({ messages, status, bottomRef, onOpenInterface }) {
   return (
     <section className="flex-1 space-y-5 px-1 py-6">
       {messages.map((message) => {
@@ -94,15 +77,7 @@ export default function MessageList({ messages, status, bottomRef, onSelectMovim
                   {text}
                 </div>
               )}
-              {hasInterface && (
-                <div className="w-full">
-                  <GeneratedInterface
-                    message={message}
-                    isStreaming={isStreaming}
-                    onSelectMovimiento={onSelectMovimiento}
-                  />
-                </div>
-              )}
+              {hasInterface && <InterfaceChip message={message} onOpenInterface={onOpenInterface} />}
             </div>
           </div>
         )

@@ -41,12 +41,15 @@ app/api/mcp/route.js           ← servidor MCP: expone get_historial,
 lib/queries.js                 ← datos (hoy sintéticos, ver CONTEXT.md)
 ```
 
-Cada tool regresa `{ component, data }`. El frontend
-(`components/message-list.jsx` → `components/generative/GenerativeToolResult.jsx`)
-usa `component` para elegir cuál de los 3 componentes generativos renderizar
-con `data`. Tocar un movimiento en la lista manda ese movimiento de vuelta al
-agente como contexto, que genera el ticket de detalle — así se cierra el
-ciclo interacción → nueva interfaz que pide el reto.
+Cada tool regresa `{ component, data }` (o `{ screens: [...] }` para un flujo
+de varias pantallas). El frontend muestra esa interfaz en un panel/canvas
+junto al chat, no como tarjeta dentro de la burbuja: `components/message-list.jsx`
+solo pinta un chip "Ver interfaz generada" que abre
+`components/generative/InterfacePanel.jsx`, el cual usa `GenerativeToolResult.jsx`
+para elegir cuál de los componentes generativos renderizar con `data`. Tocar
+un movimiento en la lista manda ese movimiento de vuelta al agente como
+contexto, que genera el ticket de detalle — así se cierra el ciclo interacción
+→ nueva interfaz que pide el reto.
 
 ## Estructura
 
