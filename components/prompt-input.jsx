@@ -18,6 +18,8 @@ export default function PromptInput({ value, onChange, onSubmit, onSuggestion, d
   const [voiceError, setVoiceError] = useState("")
   const recognitionRef = useRef(null)
   const valueRef = useRef(value)
+  const hasResultRef = useRef(false)
+  const manualStopRef = useRef(false)
 
   useEffect(() => {
     valueRef.current = value
@@ -52,8 +54,12 @@ export default function PromptInput({ value, onChange, onSubmit, onSuggestion, d
     // Dicta a partir de lo que ya había escrito, en vez de reemplazarlo,
     // para poder combinar texto escrito y hablado.
     const baseValue = valueRef.current ? `${valueRef.current} ` : ""
+    hasResultRef.current = false
+    manualStopRef.current = false
+    let hadError = false
 
     recognition.onresult = (event) => {
+      hasResultRef.current = true
       let transcript = ""
       for (let i = 0; i < event.results.length; i += 1) {
         transcript += event.results[i][0].transcript
@@ -62,6 +68,7 @@ export default function PromptInput({ value, onChange, onSubmit, onSuggestion, d
     }
 
     recognition.onerror = (event) => {
+      hadError = true
       if (event.error === "not-allowed") {
         setVoiceError("Activa el permiso del micrófono para dictar.")
       } else if (event.error === "audio-capture") {
@@ -74,7 +81,20 @@ export default function PromptInput({ value, onChange, onSubmit, onSuggestion, d
       setIsListening(false)
     }
 
-    recognition.onend = () => setIsListening(false)
+    // Algunos navegadores (Brave, o Chromium de Linux sin la llave de API
+    // de Google) arrancan a "escuchar" sin ningún error, pero nunca
+    // regresan ninguna transcripción — el backend de reconocimiento falla
+    // en silencio. Si terminó de escuchar sin haber recibido ni un
+    // resultado y sin haber disparado ya un error, es la señal más clara
+    // de que pasó justo eso, y vale la pena avisar en vez de dejarlo mudo.
+    recognition.onend = () => {
+      setIsListening(false)
+      if (!hasResultRef.current && !hadError && !manualStopRef.current) {
+        setVoiceError(
+          "No se detectó ninguna transcripción. En Brave o en Chromium de Linux el dictado puede no funcionar — prueba en Google Chrome oficial o Microsoft Edge."
+        )
+      }
+    }
 
     recognitionRef.current = recognition
 
@@ -93,6 +113,7 @@ export default function PromptInput({ value, onChange, onSubmit, onSuggestion, d
 
   const toggleVoice = async () => {
     if (isListening) {
+      manualStopRef.current = true
       recognitionRef.current?.stop()
       return
     }
