@@ -12,6 +12,7 @@ export default function InterfacePanel({
   onExpand,
   onClose,
   onSelectMovimiento,
+  onElegirPlan,
 }) {
   const total = screens.length
   const safeIndex = Math.min(screenIndex, total - 1)
@@ -83,7 +84,11 @@ export default function InterfacePanel({
 
         <div className="flex-1 overflow-y-auto px-4 py-4">
           {current && (
-            <GenerativeToolResult output={current} onSelectMovimiento={onSelectMovimiento} />
+            <GenerativeToolResult
+              output={current}
+              onSelectMovimiento={onSelectMovimiento}
+              onElegirPlan={onElegirPlan}
+            />
           )}
         </div>
 

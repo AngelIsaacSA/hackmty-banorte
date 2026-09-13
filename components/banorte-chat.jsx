@@ -95,6 +95,10 @@ export default function BanorteChat() {
     )
   }
 
+  const onElegirPlan = (meses) => {
+    send(`Quiero el plan de ${meses} meses.`)
+  }
+
   const screenIndex = activeInterface ? screenIndexByKey[activeInterface.key] ?? 0 : 0
 
   const setScreenIndex = (index) => {
@@ -156,6 +160,7 @@ export default function BanorteChat() {
           onExpand={() => setPanelCollapsed(false)}
           onClose={resetAll}
           onSelectMovimiento={onSelectMovimiento}
+          onElegirPlan={onElegirPlan}
         />
       )}
     </div>

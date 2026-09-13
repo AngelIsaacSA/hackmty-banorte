@@ -4,6 +4,7 @@ import MovimientosList from './MovimientosList'
 import MovimientoTicket from './MovimientoTicket'
 import ProyeccionCard from './ProyeccionCard'
 import PlanPagoOpciones from './PlanPagoOpciones'
+import PlanPagoConfirmacion from './PlanPagoConfirmacion'
 
 export default function GenerativeToolResult({ output, onSelectMovimiento, onElegirPlan }) {
   if (!output || typeof output !== 'object') return null
@@ -22,6 +23,8 @@ export default function GenerativeToolResult({ output, onSelectMovimiento, onEle
       return <ProyeccionCard data={output.data} />
     case 'PlanPagoOpciones':
       return <PlanPagoOpciones data={output.data} onElegirPlan={onElegirPlan} />
+    case 'PlanPagoConfirmacion':
+      return <PlanPagoConfirmacion data={output.data} />
     default:
       return null
   }

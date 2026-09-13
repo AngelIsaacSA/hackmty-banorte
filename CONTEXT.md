@@ -289,6 +289,42 @@ de `tarjeta` documentados arriba.
   `aplicar_plan_pago` ahora que ambas ramas ya están juntas en
   `feature/integracion` — ver Pendientes.
 
+## Avance en feature/plan-pago-clickeable
+
+Conecta el botón "Elegir este plan" de `PlanPagoOpciones` (antes el flujo
+accionable solo se podía disparar escribiendo texto en el chat).
+
+- `components/banorte-chat.jsx` — se agregó `onElegirPlan(meses)` junto a
+  `onSelectMovimiento`, mismo patrón: arma
+  `"Quiero el plan de {meses} meses."` y lo manda con `send(...)`. Se pasa
+  como prop directo a `<InterfacePanel>` (ya **no** pasa por
+  `message-list.jsx` — desde que existe el panel, `onSelectMovimiento` /
+  `onElegirPlan` van de `banorte-chat.jsx` directo a `InterfacePanel.jsx`,
+  que a su vez se los pasa a `GenerativeToolResult.jsx`; `message-list.jsx`
+  solo maneja el chip "Ver interfaz generada", ya no renderiza tarjetas).
+- `components/generative/InterfacePanel.jsx` — recibe `onElegirPlan` y lo
+  reenvía a `GenerativeToolResult`.
+- **Bug real encontrado y arreglado**: `GenerativeToolResult.jsx` nunca tuvo
+  el `case 'PlanPagoConfirmacion'` — se me había pasado al agregar
+  `PlanPagoOpciones` en `feature/flujo-accionable`. Sin este fix, la segunda
+  pantalla del flujo accionable (la confirmación) se veía **en blanco**
+  dentro del panel — la tool corría bien y el JSON era correcto, pero nada
+  se pintaba. Se encontró probando el clic real en navegador (Playwright +
+  Chrome del sistema, sin instalar nada en el repo); no se hubiera visto
+  con curl/pruebas directas al MCP porque esas solo revisan el JSON, no el
+  render.
+- Probado de punta a punta con un clic real (no texto): "quiero
+  reestructurar mi tarjeta" → clic en "Elegir este plan" (18 meses) → recap
+  con badge "Plan activo" → clic en "Siguiente" → pantalla de confirmación
+  con folio/mensualidad/fecha correctos. Confirmado que `onSelectMovimiento`
+  sigue funcionando (tocar un movimiento en `MovimientosList` sigue
+  regresando su `MovimientoTicket`, ahora con datos reales de Supabase).
+  `pnpm exec eslint .` y `pnpm build` limpios, sin errores de consola.
+- Nota para quien pruebe esto: el panel abre las interfaces de N pantallas
+  siempre en el índice 0 (para `aplicar_plan_pago` eso es el recap de
+  opciones, no la confirmación) — hay que darle "Siguiente" para ver la
+  segunda pantalla, no es un bug.
+
 ## Bitácora técnica — bugs reales y por qué se resolvieron así
 
 - **`getHistorial`/`getProyeccion` con Supabase real usaban `new Date()` como
@@ -364,15 +400,11 @@ de `tarjeta` documentados arriba.
 
 ## Pendientes (por prioridad)
 
-1. ~~**Flujo accionable**~~ y ~~**nuevo patrón de interfaz**~~ — resueltos
-   por separado en `feature/flujo-accionable` (`get_plan_pago` +
-   `aplicar_plan_pago`, regla #3 del reto) y `feature/interfaz-canvas`
-   (`InterfacePanel.jsx`), ya mergeados juntos en `feature/integracion`.
-   **Falta la prueba conjunta**: `aplicar_plan_pago` nunca se probó pasando
-   por el panel real (interfaz-canvas solo usó datos falsos armados a mano
-   para el caso `{ screens: [...] }`) — hay que confirmar que el panel
-   navegue bien sus 2 pantallas reales y que `PlanPagoOpciones` se vea
-   correcto ahí dentro.
+1. ~~**Flujo accionable**~~, ~~**nuevo patrón de interfaz**~~ y ~~**prueba
+   conjunta de ambos**~~ — resueltos. Ver "Avance en
+   feature/plan-pago-clickeable" abajo: se conectó el botón "Elegir este
+   plan" (antes solo funcionaba escribiendo texto) y se encontró/arregló un
+   bug real que dejaba en blanco la pantalla de confirmación.
 2. ~~Conectar `lib/queries.js` al esquema real de Supabase~~ — hecho.
    `feature/supabase-real` (Codex, commit `3b4de76`) ya está mergeada en
    `feature/integracion`. `getHistorial`/`buscarMovimiento`/`getProyeccion`
