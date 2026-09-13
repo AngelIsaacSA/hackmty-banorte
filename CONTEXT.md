@@ -173,13 +173,25 @@ de texto.
    "confirmación exitosa" como 2 pantallas de una sola interfaz)
 5. Cerrar el chat borra todo el historial + todas las interfaces generadas
 
-**Decisión de diseño pendiente** (hay que tomarla antes de repartir el
-trabajo de UI): ¿vamos por el patrón completo de panel/canvas separado del
-chat (más fiel al PDF, más vistoso, más trabajo), o extendemos el modelo
-actual de tarjetas inline agregándole soporte multi-pantalla + botón de
-reset (menos trabajo, cumple las reglas funcionalmente pero no calca el
-layout de las capturas)? Ver la conversación de reparto de trabajo para la
-recomendación vigente.
+**Decisión tomada:** vamos por el patrón completo de panel/canvas separado
+del chat (más fiel al PDF), en paralelo con el flujo accionable, en ramas
+distintas. Para que ninguna de las dos rompa a la otra, este es el
+**contrato de datos acordado** entre ambas:
+
+- Una tool que resuelve en **una sola pantalla** (las 3 que ya existen: 
+  `get_historial`, `buscar_movimiento`, `get_proyeccion`) sigue regresando
+  exactamente `{ component: "NombreComponente", data: {...} }`, sin cambios.
+- Una tool que resuelve en **N pantallas** (el flujo accionable nuevo)
+  regresa `{ screens: [{ component, data }, { component, data }, ...] }` —
+  un arreglo, en el orden en que se deben mostrar.
+- El componente de UI que decide qué pintar (hoy `GenerativeToolResult`,
+  mañana el panel/canvas nuevo) debe checar: si el output tiene `screens`,
+  es una interfaz multi-pantalla con navegación (anterior/siguiente); si
+  tiene `component`/`data` directo, es una sola pantalla. Ambos casos
+  reutilizan los mismos componentes generativos (`MovimientosList`,
+  `MovimientoTicket`, `ProyeccionCard`, y los nuevos que agregue el flujo
+  accionable) — el panel solo decide layout y navegación, no duplica lógica
+  de cada tarjeta.
 
 ## Bitácora técnica — bugs reales y por qué se resolvieron así
 
