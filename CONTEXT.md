@@ -45,10 +45,14 @@ Usuario (banorte-chat.jsx, useChat)
       → get_historial / buscar_movimiento / get_proyeccion
       → cada tool llama lib/queries.js y regresa { component, data }
   → el resultado de la tool viaja de vuelta como parte del mensaje
-  → components/message-list.jsx lee las partes tool-* y las manda a
-    components/generative/GenerativeToolResult.jsx, que elige el componente
+  → components/message-list.jsx lee las partes tool-* y solo pinta un chip
+    "Ver interfaz generada" (la tarjeta ya no va inline en la burbuja)
+  → components/banorte-chat.jsx encuentra la última interfaz generada en
+    `messages` y se la pasa a components/generative/InterfacePanel.jsx, el
+    panel/canvas que vive al lado del chat (o encima en mobile)
+  → InterfacePanel usa GenerativeToolResult.jsx para elegir el componente
     real (MovimientosList / MovimientoTicket / ProyeccionCard) según
-    output.component
+    output.component, con navegación si output.screens trae varias
   → tocar un movimiento en MovimientosList dispara onSelectMovimiento, que
     manda un mensaje nuevo al agente con los datos de ese movimiento, y el
     agente regresa MovimientoTicket — así se cierra el ciclo "lo que la
@@ -59,9 +63,14 @@ Archivos clave:
 - `app/api/chat/route.js` — orquesta Gemini/Groq + cliente MCP
 - `app/api/mcp/route.js` — servidor MCP, las 3 tools
 - `lib/queries.js` — capa de datos (dataset sintético + lógica de búsqueda)
-- `components/banorte-chat.jsx` — contenedor del chat (useChat, estado)
-- `components/message-list.jsx` — renderiza mensajes + interfaz generada
-- `components/generative/*.jsx` — los 3 componentes generativos
+- `components/banorte-chat.jsx` — contenedor del chat (useChat, estado,
+  deriva la interfaz activa para el panel)
+- `components/message-list.jsx` — renderiza mensajes + el chip que abre el
+  panel (ya no la interfaz completa inline)
+- `components/generative/InterfacePanel.jsx` — el panel/canvas: layout,
+  colapsar/expandir, cerrar (reset total), navegación multi-pantalla
+- `components/generative/*.jsx` — los 3 componentes generativos +
+  `GenerativeToolResult.jsx` (elige cuál pintar)
 - `components/chat-hero.jsx`, `prompt-input.jsx`, `main-header.jsx`, etc. —
   UI/identidad Banorte (rediseño de natwDX, no tocar el diseño sin avisar)
 
@@ -144,7 +153,7 @@ diagrama de arquitectura y decisiones/tradeoffs.
 **Consejo del reto:** un solo flujo resuelto completo vale más que cinco
 pantallas a medias.
 
-## Nueva dirección de UI — "vida de la interfaz" (pendiente de implementar)
+## Nueva dirección de UI — "vida de la interfaz" (implementado en `feature/interfaz-canvas`)
 
 Fuente: `banorteaiexplicacion.pdf` (un inge del reto ya dio luz verde a este
 patrón). Cambia cómo se debe mostrar la interfaz generada — hoy la pintamos
@@ -193,6 +202,41 @@ distintas. Para que ninguna de las dos rompa a la otra, este es el
   accionable) — el panel solo decide layout y navegación, no duplica lógica
   de cada tarjeta.
 
+**Cómo quedó implementado** (`components/generative/InterfacePanel.jsx` +
+cambios en `components/banorte-chat.jsx` y `components/message-list.jsx`):
+
+- Desktop (`md:` y arriba): panel fijo de 420px al lado del chat, mismo alto
+  (`items-stretch` en el contenedor de `banorte-chat.jsx`), ambos usables al
+  mismo tiempo. Mobile: bottom-sheet de 60vh con backdrop — deja la parte de
+  arriba del chat visible/tocable (tap en el backdrop también colapsa).
+- `message-list.jsx` ya no pinta la tarjeta completa inline — solo un chip
+  "Ver interfaz generada" (o "Consultando tu información…" mientras no está
+  lista) que abre/expande el panel. La tarjeta real vive únicamente en el
+  panel, vía `GenerativeToolResult`.
+- El panel se deriva de `messages` (no de estado aparte): `findLatestInterface`
+  en `banorte-chat.jsx` recorre los mensajes de atrás hacia adelante buscando
+  la última parte `tool-*`/`dynamic-tool` con `state: "output-available"`, y
+  normaliza `{component,data}` → `{screens:[{component,data}]}` para que el
+  panel siempre trabaje con un arreglo. Por eso colapsar/expandir no pierde
+  nada: el contenido se recalcula solo, lo único que se guarda aparte es el
+  índice de pantalla activa por interfaz (`screenIndexByKey`, llave =
+  `messageId-partType-índice`) para que una interfaz de N pantallas recuerde
+  en cuál te quedaste.
+- Colapsar (flecha "Chat"): en desktop se vuelve un riel delgado de 56px con
+  un botón para reexpandir; en mobile desaparece y deja un pill flotante
+  "Ver interfaz". Ninguno de los dos destruye el estado.
+- Cerrar (X): `stop()` de `useChat` + `setMessages([])` + limpiar el estado
+  del panel. El `stop()` es importante — sin él, si cierras mientras el
+  agente todavía está generando una respuesta, esa respuesta llega después
+  y "revive" el chat que acababas de cerrar (bug real que apareció al
+  probarlo, no solo teórico).
+- Probado a mano con datos falsos para el caso `{ screens: [...] }` (interceptando
+  la respuesta de `/api/chat` con Playwright) ya que la tool del flujo
+  accionable todavía no existe — navegación anterior/siguiente, contador
+  "x/N", puntos y que el índice sobreviva a colapsar/expandir, todo
+  verificado así. Cuando exista la tool real de N pantallas no debería hacer
+  falta tocar `InterfacePanel.jsx`, solo que la tool regrese ese shape.
+
 ## Bitácora técnica — bugs reales y por qué se resolvieron así
 
 - **`convertToModelMessages()` es async en AI SDK 7** — si no le pones
@@ -225,6 +269,24 @@ distintas. Para que ninguna de las dos rompa a la otra, este es el
   no existe todavía porque no hay auth/sesión. Si se retoma, hay que decidir
   primero de dónde sale ese `cuenta_id` (usuario fijo tipo demo está bien
   para el hackathon).
+- **Cerrar el chat sin `stop()` no es un reset real**: `setMessages([])` solo
+  vacía el arreglo en ese instante. Si había una respuesta en curso (el
+  usuario cerró justo después de tocar un movimiento, por ejemplo), esa
+  respuesta sigue viva en el `fetch`/stream de `useChat` y cuando termina se
+  inserta de vuelta en `messages` — el chat "revive" solo, con contenido
+  viejo, después de que ya se había cerrado. Hay que llamar `stop()` (lo
+  regresa `useChat`) antes de `setMessages([])`. Se reprodujo de verdad
+  interceptando el stream con Playwright y forzando el cierre a mitad de una
+  respuesta — no es un caso hipotético.
+- **`scrollIntoView` en un layout sin scroll acotado mueve toda la página**:
+  antes de tener un panel al lado, que `bottomRef.scrollIntoView()` scrolleara
+  la ventana completa no se notaba. En cuanto hay un panel como hermano del
+  chat, ese scroll de página saca el header del panel (con los botones de
+  volver/cerrar) fuera de la vista sin que se note por qué. La solución no es
+  tocar el `scrollIntoView` sino contener el scroll: `app/page.jsx` pasó de
+  `min-h-dvh` a `h-dvh overflow-hidden`, y el área de mensajes en
+  `banorte-chat.jsx` tiene su propio `overflow-y-auto` — así el scroll queda
+  encerrado ahí y el resto del layout (header, panel) no se mueve.
 - **`feature/chat-ui` se integró dos veces**: se rediseñó por completo
   después de la primera integración (commits de "natwDX") y se volvió a
   desincronizar del MCP — tenía un TODO literal sin resolver para renderizar
@@ -240,8 +302,10 @@ distintas. Para que ninguna de las dos rompa a la otra, este es el
    `tarjeta.limite_credito/credito_utilizado/tasa_interes/cat` (ver "Esquema
    real de Supabase" arriba), que al confirmarse escriba de verdad en la
    tabla.
-2. **Nuevo patrón de interfaz** (ver sección de arriba) — decidir alcance e
-   implementarlo.
+2. ~~Nuevo patrón de interfaz~~ — implementado en `feature/interfaz-canvas`
+   (ver sección de arriba). Falta que el flujo accionable (pendiente #1) lo
+   ejercite de verdad con una tool que regrese `{ screens: [...] }`; hoy solo
+   se probó con datos de prueba armados a mano.
 3. Conectar `lib/queries.js` al esquema real de Supabase (ya no es "falta
    definirlo", es "falta adaptarlo") — o formalizar que el dataset sintético
    es la decisión final para la demo (está permitido por las reglas).

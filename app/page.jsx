@@ -5,7 +5,7 @@ import MainHeader from "@/components/main-header"
 
 export default function Page() {
   return (
-    <div className="hero-bg-pattern flex min-h-dvh flex-col text-slate-800">
+    <div className="hero-bg-pattern flex h-dvh flex-col overflow-hidden text-slate-800">
       <InstitutionalTopBar />
       <MainHeader />
       <BanorteChat />
