@@ -5,7 +5,7 @@ const formatoMoneda = new Intl.NumberFormat('es-MX', {
   currency: 'MXN',
 })
 
-export default function ProyeccionCard({ data }) {
+export default function ProyeccionCard({ data, onVerHistorial }) {
   const { saldoActual, gastosProyectados, saldoProyectado, alcanza, diasRestantes } = data
 
   return (
@@ -48,6 +48,16 @@ export default function ProyeccionCard({ data }) {
         <p className="mt-3 border-t border-border pt-3 text-center text-xs text-muted-foreground">
           Quedan {diasRestantes} día{diasRestantes === 1 ? '' : 's'} para que termine el mes.
         </p>
+      )}
+
+      {onVerHistorial && (
+        <button
+          type="button"
+          onClick={onVerHistorial}
+          className="mt-3 w-full rounded-full border border-border py-2 text-xs font-semibold text-foreground transition-colors hover:border-banorte-red hover:text-banorte-red"
+        >
+          Ver movimientos de este mes
+        </button>
       )}
     </div>
   )

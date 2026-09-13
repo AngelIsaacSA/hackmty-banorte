@@ -181,6 +181,14 @@ Antes de dar por terminado un componente nuevo, pregúntate qué pasa cuando
 el usuario ya vio los datos — si la respuesta es "nada, se queda viéndolo",
 falta una acción.
 
+**Actualización**: ya se cerró esta regla en los 5 componentes que existían
+antes de `feature/analisis-gastos` — `ProyeccionCard` tiene "Ver movimientos
+de este mes" (`onVerHistorial`, reusa el mismo prop que ya existía) y
+`MovimientoTicket` tiene "Ver más cargos de {comercio}" (`onBuscarComercio`,
+nuevo — manda `buscar_movimiento` con el nombre del comercio). Cualquier
+componente nuevo (los de análisis de gastos, por ejemplo) debería seguir el
+mismo patrón desde el principio, no agregarlo después.
+
 **Flujo de vida de una interfaz generada:**
 1. Prompt — el usuario escribe en lenguaje natural
 2. Lectura e interpretación — el agente detecta la intención

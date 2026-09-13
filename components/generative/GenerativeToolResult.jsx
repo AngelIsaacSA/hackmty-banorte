@@ -11,6 +11,7 @@ export default function GenerativeToolResult({
   onSelectMovimiento,
   onElegirPlan,
   onVerHistorial,
+  onBuscarComercio,
 }) {
   if (!output || typeof output !== 'object') return null
 
@@ -24,9 +25,9 @@ export default function GenerativeToolResult({
         />
       )
     case 'MovimientoTicket':
-      return <MovimientoTicket data={output.data} />
+      return <MovimientoTicket data={output.data} onBuscarComercio={onBuscarComercio} />
     case 'ProyeccionCard':
-      return <ProyeccionCard data={output.data} />
+      return <ProyeccionCard data={output.data} onVerHistorial={onVerHistorial} />
     case 'PlanPagoOpciones':
       return <PlanPagoOpciones data={output.data} onElegirPlan={onElegirPlan} />
     case 'PlanPagoConfirmacion':

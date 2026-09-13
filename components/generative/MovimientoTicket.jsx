@@ -12,7 +12,7 @@ const formatoFecha = new Intl.DateTimeFormat('es-MX', {
   year: 'numeric',
 })
 
-export default function MovimientoTicket({ data }) {
+export default function MovimientoTicket({ data, onBuscarComercio }) {
   const { movimiento, cuenta } = data || {}
   if (!movimiento) return null
 
@@ -65,6 +65,16 @@ export default function MovimientoTicket({ data }) {
           <dd className="font-mono text-xs">#{movimiento.id}</dd>
         </div>
       </dl>
+
+      {onBuscarComercio && (
+        <button
+          type="button"
+          onClick={() => onBuscarComercio(movimiento.comercio)}
+          className="mt-4 w-full rounded-full border border-border py-2 text-xs font-semibold text-foreground transition-colors hover:border-banorte-red hover:text-banorte-red"
+        >
+          Ver más cargos de {movimiento.comercio}
+        </button>
+      )}
     </div>
   )
 }
