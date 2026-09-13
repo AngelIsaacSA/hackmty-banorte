@@ -43,7 +43,7 @@ function Avatar({ role }) {
   if (role === "user") {
     return (
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-xs font-bold text-slate-700">
-        JS
+        CR
       </div>
     )
   }
