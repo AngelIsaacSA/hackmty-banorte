@@ -130,6 +130,10 @@ export default function BanorteChat() {
     send('Muéstrame mis últimos movimientos de este mes.')
   }
 
+  const onVerCategoria = (categoria) => {
+    send(`¿Cuánto he gastado en ${categoria}?`)
+  }
+
   // El chip "Ver interfaz generada" de un mensaje debe abrir la interfaz de
   // ESE mensaje, no siempre la más reciente del chat.
   const onOpenInterface = (messageId) => {
@@ -220,6 +224,7 @@ export default function BanorteChat() {
           onSelectMovimiento={onSelectMovimiento}
           onElegirPlan={onElegirPlan}
           onVerHistorial={onVerHistorial}
+          onVerCategoria={onVerCategoria}
         />
       )}
     </div>

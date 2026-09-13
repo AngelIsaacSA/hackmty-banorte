@@ -6,6 +6,8 @@ import {
   getProyeccion,
   getPlanPago,
   aplicarPlanPago,
+  getGastoPorCategoria,
+  getResumenGastos,
 } from '@/lib/queries'
 
 function toolResult(component, data) {
@@ -127,6 +129,52 @@ const handler = createMcpHandler(
             data: { tarjeta: resultado.tarjeta, opcion: resultado.opcionAplicada },
           },
         ])
+      }
+    )
+
+    server.registerTool(
+      'get_gasto_por_categoria',
+      {
+        title: 'Gasto por categoría',
+        description:
+          'Suma los gastos del periodo por categoría. Si se le da una categoría (ej. "comida", "servicios", "restaurantes"), regresa el total y los movimientos de esa categoría. Si no se le da ninguna, regresa el desglose completo de todas las categorías ordenado de mayor a menor. Úsala cuando el usuario pregunte cuánto ha gastado en una categoría concreta, o en qué categorías gasta más.',
+        inputSchema: {
+          categoria: z
+            .string()
+            .optional()
+            .describe(
+              'Categoría a filtrar, ej. "Alimentos" o "Restaurantes". Si se omite, regresa el desglose de todas las categorías.'
+            ),
+          periodo: z
+            .string()
+            .optional()
+            .describe('Periodo a consultar, ej. "este mes", "últimos 3 meses"')
+            .default('este mes'),
+        },
+      },
+      async ({ categoria, periodo }) => {
+        const resultado = await getGastoPorCategoria({ categoria, periodo })
+        return toolResult('GastoPorCategoriaCard', resultado)
+      }
+    )
+
+    server.registerTool(
+      'get_resumen_gastos',
+      {
+        title: 'Resumen de gastos',
+        description:
+          'Calcula el total gastado, el movimiento individual más grande, el top 3 de gastos y un mini desglose por categoría del periodo. Úsala cuando el usuario pregunte cuál fue su mayor gasto, en qué gastó más, o pida un resumen general de sus gastos — no para buscar un cargo específico por comercio (esa es buscar_movimiento).',
+        inputSchema: {
+          periodo: z
+            .string()
+            .optional()
+            .describe('Periodo a consultar, ej. "este mes", "últimos 3 meses"')
+            .default('este mes'),
+        },
+      },
+      async ({ periodo }) => {
+        const resultado = await getResumenGastos({ periodo })
+        return toolResult('ResumenGastosCard', resultado)
       }
     )
   },
