@@ -12,30 +12,39 @@ import {
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
-// Junta todas las keys de Gemini configuradas para rotar entre varias
-// cuentas gratis cuando una se queda sin cuota diaria (20 requests/día en
-// el tier gratis), en vez de depender de una sola. Nombres esperados en
-// .env.local / Vercel: GEMINI_API_KEY (la primera), GEMINI_API_KEY_2,
-// GEMINI_API_KEY_3, GEMINI_API_KEY_4... Se detiene en el primer número
-// faltante, así que no dejes huecos (si tienes 3 keys, usa _1(implícita)/_2/_3,
-// no te saltes a _4).
-function getGeminiModels() {
+// Junta todas las keys configuradas bajo `${envPrefix}`, `${envPrefix}_2`,
+// `${envPrefix}_3`... para rotar entre varias cuentas gratis cuando una se
+// queda sin cuota diaria, en vez de depender de una sola. Se detiene en el
+// primer número faltante, así que no dejes huecos (si tienes 3 keys, usa
+// la base + _2 + _3, no te saltes a _4).
+function getKeyedModels(envPrefix, createModel) {
   const models = []
-  let key = process.env.GEMINI_API_KEY
+  let key = process.env[envPrefix]
   let index = 2
 
   while (key) {
-    models.push(createGoogleGenerativeAI({ apiKey: key })('gemini-3.6-flash'))
-    key = process.env[`GEMINI_API_KEY_${index}`]
+    models.push(createModel(key))
+    key = process.env[`${envPrefix}_${index}`]
     index += 1
   }
 
   return models
 }
 
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
-})
+// Nombres esperados en .env.local / Vercel:
+// GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_API_KEY_3...
+// GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3...
+function getGeminiModels() {
+  return getKeyedModels('GEMINI_API_KEY', (key) =>
+    createGoogleGenerativeAI({ apiKey: key })('gemini-3.6-flash')
+  )
+}
+
+function getGroqModels() {
+  return getKeyedModels('GROQ_API_KEY', (key) =>
+    createGroq({ apiKey: key })('openai/gpt-oss-120b')
+  )
+}
 
 const SYSTEM_PROMPT = `Eres el asistente financiero de Banorte. Ayudas a Carlos Ramírez Mendoza
 a entender sus movimientos de la cuenta 0218-1234-5678. Respondes siempre en español, de forma
@@ -196,7 +205,7 @@ export async function POST(req) {
 
   const { tools, client } = await getMcpTools(origin)
   const modelMessages = await convertToModelMessages(messages)
-  const models = [...getGeminiModels(), groq('openai/gpt-oss-120b')]
+  const models = [...getGeminiModels(), ...getGroqModels()]
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
