@@ -40,7 +40,7 @@ const handler = createMcpHandler(
         },
       },
       async ({ periodo }) => {
-        const resultado = getHistorial({ periodo })
+        const resultado = await getHistorial({ periodo })
         return toolResult('MovimientosList', resultado)
       }
     )
@@ -58,7 +58,7 @@ const handler = createMcpHandler(
         },
       },
       async ({ query }) => {
-        const resultado = buscarMovimiento({ query })
+        const resultado = await buscarMovimiento({ query })
         const component =
           resultado.movimientos.length === 1 ? 'MovimientoTicket' : 'MovimientosList'
         const data =
@@ -78,7 +78,7 @@ const handler = createMcpHandler(
         inputSchema: {},
       },
       async () => {
-        const resultado = getProyeccion()
+        const resultado = await getProyeccion()
         return toolResult('ProyeccionCard', resultado)
       }
     )
