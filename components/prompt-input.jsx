@@ -77,8 +77,18 @@ export default function PromptInput({ value, onChange, onSubmit, onSuggestion, d
     recognition.onend = () => setIsListening(false)
 
     recognitionRef.current = recognition
-    recognition.start()
-    setIsListening(true)
+
+    try {
+      recognition.start()
+      setIsListening(true)
+    } catch {
+      // Si el navegador bloquea el micrófono a nivel de política de SO
+      // (común en Windows con permisos gestionados), recognition.start()
+      // puede tirar una excepción síncrona en vez de disparar onerror. Sin
+      // este try/catch, esa excepción se perdía sin avisar nada al
+      // usuario — parecía que el botón no hacía absolutamente nada.
+      setVoiceError("No se pudo iniciar el dictado. Revisa los permisos de micrófono de Windows y del navegador.")
+    }
   }
 
   const toggleVoice = async () => {
