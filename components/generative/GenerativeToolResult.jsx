@@ -5,6 +5,8 @@ import MovimientoTicket from './MovimientoTicket'
 import ProyeccionCard from './ProyeccionCard'
 import PlanPagoOpciones from './PlanPagoOpciones'
 import PlanPagoConfirmacion from './PlanPagoConfirmacion'
+import GastoPorCategoriaCard from './GastoPorCategoriaCard'
+import ResumenGastosCard from './ResumenGastosCard'
 
 export default function GenerativeToolResult({
   output,
@@ -12,6 +14,7 @@ export default function GenerativeToolResult({
   onElegirPlan,
   onVerHistorial,
   onBuscarComercio,
+  onVerCategoria,
 }) {
   if (!output || typeof output !== 'object') return null
 
@@ -32,6 +35,22 @@ export default function GenerativeToolResult({
       return <PlanPagoOpciones data={output.data} onElegirPlan={onElegirPlan} />
     case 'PlanPagoConfirmacion':
       return <PlanPagoConfirmacion data={output.data} />
+    case 'GastoPorCategoriaCard':
+      return (
+        <GastoPorCategoriaCard
+          data={output.data}
+          onSelect={onSelectMovimiento}
+          onVerCategoria={onVerCategoria}
+        />
+      )
+    case 'ResumenGastosCard':
+      return (
+        <ResumenGastosCard
+          data={output.data}
+          onSelectMovimiento={onSelectMovimiento}
+          onVerCategoria={onVerCategoria}
+        />
+      )
     default:
       return null
   }

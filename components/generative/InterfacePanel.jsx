@@ -14,6 +14,7 @@ export default function InterfacePanel({
   onElegirPlan,
   onVerHistorial,
   onBuscarComercio,
+  onVerCategoria,
 }) {
   const total = screens.length
   const safeIndex = Math.min(screenIndex, total - 1)
@@ -78,6 +79,7 @@ export default function InterfacePanel({
               onElegirPlan={onElegirPlan}
               onVerHistorial={onVerHistorial}
               onBuscarComercio={onBuscarComercio}
+              onVerCategoria={onVerCategoria}
             />
           )}
         </div>

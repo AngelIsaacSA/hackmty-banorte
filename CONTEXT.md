@@ -388,6 +388,58 @@ de verdad.
   correctamente sin sesión), pero el flujo end-to-end de tocar el sensor
   todavía no lo confirmó nadie.
 
+## Avance en feature/analisis-gastos
+
+2 intents nuevos de análisis de gastos, más el fix del bug real de "mayor
+gasto" que se mandaba a la tool equivocada.
+
+- `lib/queries.js` — nueva función compartida `agruparPorCategoria(movimientos)`
+  (suma por `categoria`, cuenta, ordena de mayor a menor) usada por las 2
+  funciones nuevas para no duplicar lógica:
+  - `getGastoPorCategoria({ categoria, periodo })` — con `categoria`: total
+    + movimientos de esa categoría (filtro case-insensitive por substring,
+    igual que `buscarMovimiento`). Sin `categoria`: desglose completo vía
+    `agruparPorCategoria`.
+  - `getResumenGastos({ periodo })` — `totalGastado`, `mayorGasto` (el
+    movimiento individual de mayor monto absoluto), `topGastos` (los 3
+    más grandes) y `porCategoria` (mismo agrupamiento).
+- `app/api/mcp/route.js` — dos tools nuevas, una sola pantalla cada una:
+  `get_gasto_por_categoria` → `{ component: "GastoPorCategoriaCard", data }`,
+  `get_resumen_gastos` → `{ component: "ResumenGastosCard", data }`.
+- `components/generative/GastoPorCategoriaCard.jsx` — dos vistas en un
+  componente: si `data.categoria` viene, título + total + lista de
+  movimientos (mismo patrón de fila que `MovimientosList`); si no, barras de
+  progreso por categoría ordenadas de mayor a menor.
+- `components/generative/ResumenGastosCard.jsx` — total arriba, tarjeta
+  destacada del mayor gasto (con botón "Ver detalle" → `onSelectMovimiento`,
+  patrón ya existente), top 3 clickeable, mini desglose por categoría.
+- **Nuevo callback siguiendo el patrón de `onSelectMovimiento`/`onElegirPlan`/
+  `onVerHistorial`**: `onVerCategoria(categoria)` en `banorte-chat.jsx` —
+  manda `"¿Cuánto he gastado en {categoria}?"`. Se usa al tocar una
+  categoría en el desglose completo o en el mini desglose de
+  `ResumenGastosCard`, para cumplir la regla de diseño de que todo
+  componente generativo debe tener algo que tocar. Enchufado por la misma
+  cadena: `banorte-chat.jsx` → `InterfacePanel.jsx` → `GenerativeToolResult.jsx`.
+- `app/api/chat/route.js` → `SYSTEM_PROMPT`: se agregaron las intenciones 5
+  (GASTO POR CATEGORÍA) y 6 (RESUMEN DE GASTOS). **Bug real que esto
+  arregla**: "¿cuál fue mi mayor gasto?"/"¿en qué gasté más?" antes vivían
+  como caso especial dentro de HISTORIAL (el LLM tenía que leer la lista
+  completa de movimientos en texto y calcular el máximo él mismo, lo cual a
+  veces fallaba o mandaba la pregunta a `buscar_movimiento` por error, que
+  no encuentra nada porque "mayor gasto" no es texto que aparezca en ningún
+  movimiento). Ahora esos ejemplos se movieron a RESUMEN DE GASTOS, que
+  calcula el máximo de forma precisa en `lib/queries.js` en vez de
+  depender de que el modelo lea y compare montos en prosa.
+- Encontrado en el camino (ver "Pendientes" arriba): el dato de `categoria`
+  está roto para la cuenta demo en Supabase — no es un bug de este código,
+  pero hace que el desglose por categoría real (no el de "Sin categoría")
+  no se pueda demostrar hasta que se corrija el dato.
+- Probado: MCP directo (bypass del modelo) para verificar los cálculos y
+  que `categoria_id = null` es un problema de datos y no de query; y el
+  flujo completo por chat en vivo para los 6 intents (los 4 viejos sin
+  regresión + los 2 nuevos), incluyendo el fix del bug de "mayor gasto".
+  `pnpm exec eslint .` y `pnpm build` limpios.
+
 ## Bitácora técnica — bugs reales y por qué se resolvieron así
 
 - **El chip "Ver interfaz generada" de un mensaje viejo abría la interfaz
@@ -498,6 +550,17 @@ de verdad.
    faltan.
 4. Deploy final en Vercel + prueba end-to-end ahí (no solo local) — en
    proceso, ver conversación del equipo para el estado más reciente.
+5. **Dato roto en Supabase**: la cuenta demo (`0218-1234-5678`) tiene
+   `categoria_id = null` en TODOS sus movimientos, aunque la tabla
+   `categoria` sí tiene registros reales (Restaurantes, Transporte,
+   Supermercado, etc. — otras cuentas en la misma base sí los usan bien).
+   Por eso `get_gasto_por_categoria`/`get_resumen_gastos` (ver abajo)
+   agrupan todo bajo una sola categoría "Sin categoría" en vez de un
+   desglose real. No lo arreglé porque es un problema de datos, no de
+   código (la regla del equipo es no tocar Supabase directamente) — falta
+   que alguien corra un `UPDATE` que asigne `categoria_id` a los
+   movimientos de la cuenta demo con las categorías que ya existen en la
+   tabla `categoria`.
 
 ## Notas importantes
 
