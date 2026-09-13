@@ -13,6 +13,7 @@ export default function InterfacePanel({
   onClose,
   onSelectMovimiento,
   onElegirPlan,
+  onVerHistorial,
 }) {
   const total = screens.length
   const safeIndex = Math.min(screenIndex, total - 1)
@@ -75,6 +76,7 @@ export default function InterfacePanel({
               output={current}
               onSelectMovimiento={onSelectMovimiento}
               onElegirPlan={onElegirPlan}
+              onVerHistorial={onVerHistorial}
             />
           )}
         </div>

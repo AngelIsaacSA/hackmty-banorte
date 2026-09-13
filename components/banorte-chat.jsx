@@ -99,6 +99,10 @@ export default function BanorteChat() {
     send(`Quiero el plan de ${meses} meses.`)
   }
 
+  const onVerHistorial = () => {
+    send('Muéstrame mis últimos movimientos de este mes.')
+  }
+
   const screenIndex = activeInterface ? screenIndexByKey[activeInterface.key] ?? 0 : 0
 
   const setScreenIndex = (index) => {
@@ -161,6 +165,7 @@ export default function BanorteChat() {
           onClose={resetAll}
           onSelectMovimiento={onSelectMovimiento}
           onElegirPlan={onElegirPlan}
+          onVerHistorial={onVerHistorial}
         />
       )}
     </div>

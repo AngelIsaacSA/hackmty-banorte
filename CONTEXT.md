@@ -158,8 +158,28 @@ pantallas a medias.
 Fuente: `banorteaiexplicacion.pdf` (un inge del reto ya dio luz verde a este
 patrón). Cambia cómo se debe mostrar la interfaz generada — hoy la pintamos
 como tarjetas inline dentro del chat; el patrón que pide este doc es más
-parecido a un canvas/panel que vive junto al chat, no dentro de la burbuja
-de texto.
+parecido a un canvas/panel que a una tarjeta dentro de la burbuja de texto.
+**Actualización**: después de verlo en vivo en Vercel, se cambió de panel
+lateral fijo a **modal centrado con el chat de fondo difuminado**
+(`backdrop-blur-sm`, `animate-in zoom-in-95`) — se sentía como dos paneles
+compitiendo por espacio en vez de una interfaz que el agente genera encima
+de la conversación. Ver `InterfacePanel.jsx`.
+
+**Regla de diseño para todo componente generativo: debe tener algo que
+tocar.** Una tarjeta que solo muestra datos y no ofrece ningún siguiente
+paso es un callejón sin salida — no toda interfaz necesita N pantallas
+(eso solo aplica a flujos accionables tipo plan de pago), pero SÍ necesita
+al menos una acción disponible: un botón, un link, algo clickeable que
+mande contexto de vuelta al agente. Ejemplo real que se corrigió: cuando
+`buscar_movimiento` no encuentra nada, `MovimientosList` mostraba
+"No encontré movimientos." y ya, sin salida — se le agregó un botón
+"Ver historial completo" (`onVerHistorial`, mismo patrón que
+`onSelectMovimiento`/`onElegirPlan`: se pasa desde `banorte-chat.jsx` hasta
+el componente vía `InterfacePanel` → `GenerativeToolResult`) que manda un
+mensaje nuevo al agente en vez de dejar al usuario sin nada que hacer.
+Antes de dar por terminado un componente nuevo, pregúntate qué pasa cuando
+el usuario ya vio los datos — si la respuesta es "nada, se queda viéndolo",
+falta una acción.
 
 **Flujo de vida de una interfaz generada:**
 1. Prompt — el usuario escribe en lenguaje natural

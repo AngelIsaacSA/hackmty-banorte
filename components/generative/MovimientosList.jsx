@@ -10,7 +10,7 @@ const formatoFecha = new Intl.DateTimeFormat('es-MX', {
   month: 'short',
 })
 
-export default function MovimientosList({ data, onSelect }) {
+export default function MovimientosList({ data, onSelect, onVerHistorial }) {
   const { periodo, query, movimientos } = data
   const totalGastado = movimientos
     .filter((m) => m.monto < 0)
@@ -30,7 +30,20 @@ export default function MovimientosList({ data, onSelect }) {
       </div>
 
       {movimientos.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No encontré movimientos.</p>
+        <div className="flex flex-col items-start gap-3 py-2">
+          <p className="text-sm text-muted-foreground">
+            No encontré movimientos{query ? ` para "${query}"` : ''}.
+          </p>
+          {onVerHistorial && (
+            <button
+              type="button"
+              onClick={onVerHistorial}
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-banorte-red hover:text-banorte-red"
+            >
+              Ver historial completo
+            </button>
+          )}
+        </div>
       ) : (
         <ul className="divide-y divide-border">
           {movimientos.map((mov) => (
